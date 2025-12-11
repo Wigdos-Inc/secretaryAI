@@ -6,10 +6,10 @@ ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 // Database configuration - try to get from environment variables first, fallback to defaults
-$servername = getenv('DB_HOST') ?: "localhost";
-$username = getenv('DB_USER') ?: "newsletter";
-$password = getenv('DB_PASS') ?: "35kwJILTx4IXYeNB2Oqs";
-$dbname = getenv('DB_NAME') ?: "Newsletter_Automation";
+$servername = getenv('DB_HOST') ?: "sql211.infinityfree.com";
+$username = getenv('DB_USER') ?: "if0_40655876";
+$password = getenv('DB_PASS') ?: "Oi7gTzzLxT0S4l";
+$dbname = getenv('DB_NAME') ?: "if0_40655876_secretaryai";
 
 $dbStatus = null;
 
