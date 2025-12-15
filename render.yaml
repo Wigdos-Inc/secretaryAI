@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: secretaryai
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    buildCommand: ""
+    startCommand: ""
+    envVars:
+      - key: DB_HOST
+        value: "secretary-ai-secretaryai.g.aivencloud.com"
+      - key: DB_PORT
+        value: "17780"
+      - key: DB_NAME
+        value: "defaultdb"
+# Note: DO NOT put DB_PASS or DB_USER in git. Set them in the Render dashboard secrets instead.
