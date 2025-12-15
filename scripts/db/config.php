@@ -5,22 +5,16 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// Database configuration - try to get from environment variables first, fallback to defaults
-$servername = getenv('DB_HOST') ?: "secretary-ai-secretaryai.g.aivencloud.com";
-$username = getenv('DB_USER') ?: "avnadmin";
-$password = getenv('DB_PASS') ?: "[REDACTED_AIVEN_PASS]";
-$dbname = getenv('DB_NAME') ?: "defaultdb";
-$port     = getenv('DB_PORT') ?: "17780";
-$ssl_ca   = getenv('DB_SSL_CA') ?: __DIR__ . '/ca.pem';
+// Database configuration - use environment variables; avoid embedding secrets in repository
+// Expected env vars: DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, DB_SSL_CA
+$servername = getenv('DB_HOST') ?: 'localhost';
+$username   = getenv('DB_USER') ?: 'newsletter';
+$password   = getenv('DB_PASS') ?: '';
+$dbname     = getenv('DB_NAME') ?: 'Newsletter_Automation';
+$port       = getenv('DB_PORT') ?: '3306';
+$ssl_ca     = getenv('DB_SSL_CA') ?: __DIR__ . '/ca.pem';
 
 $dbStatus = null;
-
-// PMA DB Access
-# URL: https://pma.sd-lab.nl/
-# Username: newsletter
-# Password: 35kwJILTx4IXYeNB2Oqs
-
-// Homepage: https://102871.stu.sd-lab.nl/beroeps/newsletters/
 
 $options = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
