@@ -1,6 +1,12 @@
 <?php 
 require_once 'scripts/db/data.php'; 
 
+// If someone manually hits ?load=... (used nowhere in app), redirect to the base page to avoid 500s
+if (isset($_GET['load'])) {
+  header('Location: /beroeps/newsletters/');
+  exit;
+}
+
 // Check if user is admin or owner
 $isAdminOrOwner = false;
 if ($userID && isset($users[$userID])) {

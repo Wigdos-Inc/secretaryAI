@@ -6,10 +6,12 @@ ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 // Database configuration - try to get from environment variables first, fallback to defaults
-$servername = getenv('DB_HOST') ?: "sql211.infinityfree.com";
-$username = getenv('DB_USER') ?: "if0_40655876";
-$password = getenv('DB_PASS') ?: "Oi7gTzzLxT0S4l";
-$dbname = getenv('DB_NAME') ?: "if0_40655876_secretaryai";
+$servername = getenv('DB_HOST') ?: "secretary-ai-secretaryai.g.aivencloud.com";
+$username = getenv('DB_USER') ?: "avnadmin";
+$password = getenv('DB_PASS') ?: "[REDACTED_AIVEN_PASS]";
+$dbname = getenv('DB_NAME') ?: "defaultdb";
+$port     = getenv('DB_PORT') ?: "17780";
+$ssl_ca   = getenv('DB_SSL_CA') ?: __DIR__ . '/ca.pem';
 
 $dbStatus = null;
 
@@ -27,7 +29,13 @@ $options = [
 ];
 
 try {
-    $pdo = new PDO("mysql:host=$servername;dbname=$dbname",$username,$password,$options);
+    // Provide SSL CA for Aiven MySQL. PDO::MYSQL_ATTR_SSL_CA is defined when using PDO MySQL.
+    if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+        $options[PDO::MYSQL_ATTR_SSL_CA] = $ssl_ca;
+    }
+
+    $dsn = "mysql:host=$servername;port=$port;dbname=$dbname;charset=utf8mb4";
+    $pdo = new PDO($dsn, $username, $password, $options);
     $pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
     $dbStatus = true;
 
