@@ -3,7 +3,8 @@ require_once 'scripts/db/data.php';
 
 // If someone manually hits ?load=... (used nowhere in app), redirect to the base page to avoid 500s
 if (isset($_GET['load'])) {
-  header('Location: /beroeps/newsletters/');
+  // Redirect to site root (remove the unsupported ?load= param)
+  header('Location: /');
   exit;
 }
 
