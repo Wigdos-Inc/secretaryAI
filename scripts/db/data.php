@@ -120,19 +120,37 @@ $loopStruc = [
     ]
 ];
 
-// Add Connection Data
+// Add Connection Data (skip missing tables instead of failing)
 for ($i=0; $i < count($loopStruc['tables']); $i++) {
+    $table = $loopStruc['tables'][$i];
+    try {
+        $stmt = $pdo->query("SELECT * FROM {$table}", PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // If table doesn't exist, skip and continue; otherwise log and continue
+        $sqlState = $e->getCode();
+        error_log("Warning: could not query table {$table}: " . $e->getMessage());
+        continue;
+    }
 
     // Iterate through Table Rows
-    foreach($pdo->query("SELECT * FROM {$loopStruc['tables'][$i]}", PDO::FETCH_ASSOC) as $row) {
+    foreach ($stmt as $row) {
 
         // Easier Access
         $ids   = [$row[$loopStruc['idKeys'][$i][0]], $row[$loopStruc['idKeys'][$i][1]]];
         $tgts  = &$loopStruc['targets'][$i];
         $props = $loopStruc['properties'][$i];
 
-        // Push Data
-        for ($i2=0; $i2 < 2; $i2++) $tgts[$i2][$ids[$i2]][$props[$i2]][] = $ids[1-$i2];
+        // Push Data (guard against missing target keys)
+        for ($i2=0; $i2 < 2; $i2++) {
+            if (!isset($tgts[$i2][$ids[$i2]])) {
+                // initialize missing target entry to avoid notices
+                $tgts[$i2][$ids[$i2]] = [];
+            }
+            if (!isset($tgts[$i2][$ids[$i2]][$props[$i2]])) {
+                $tgts[$i2][$ids[$i2]][$props[$i2]] = [];
+            }
+            $tgts[$i2][$ids[$i2]][$props[$i2]][] = $ids[1-$i2];
+        }
     }
 }
 
