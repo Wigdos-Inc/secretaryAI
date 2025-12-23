@@ -16,7 +16,25 @@ A GitHub Actions workflow has been created at `.github/workflows/create-main-bac
 
 ### How to Execute
 
-#### Option 1: Manual Trigger (Recommended)
+#### Option 1: Run the Shell Script (Fastest)
+A bash script `create-backup-branch.sh` is provided for quick execution:
+
+```bash
+# Make sure you're in the repository root
+cd /path/to/secretaryAI
+
+# Run the script (requires push permissions)
+./create-backup-branch.sh
+```
+
+The script will:
+- Fetch the latest changes from remote
+- Check if the branch already exists (with option to recreate)
+- Create main-backup-2 from origin/main
+- Push the new branch to remote
+- Verify the operation was successful
+
+#### Option 2: Manual Trigger via GitHub Actions (Recommended)
 1. Go to the GitHub repository
 2. Navigate to **Actions** tab
 3. Select **"Create main-backup-2 Branch"** workflow
@@ -24,8 +42,17 @@ A GitHub Actions workflow has been created at `.github/workflows/create-main-bac
 5. Select the branch to run from (typically `main` or the PR branch)
 6. Click **"Run workflow"** to execute
 
-#### Option 2: Merge this PR
-Once this PR is merged to main, the workflow file will be available in the repository and can be triggered manually as described above.
+#### Option 3: Manual Git Commands
+If you prefer to run git commands directly, you can also execute:
+
+```bash
+git fetch origin
+git branch main-backup-2 origin/main
+git push origin main-backup-2
+```
+
+#### Note on Workflow Availability
+Once this PR is merged to main, the workflow file will be available in the repository and can be triggered manually as described in Option 2.
 
 ## Verification
 After the workflow runs successfully, you can verify the branch was created correctly:
