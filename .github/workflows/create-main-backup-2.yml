@@ -1,31 +1,32 @@
+---
 name: Create main-backup-2 Branch
 
-on:
-  workflow_dispatch: # Allows manual triggering
+'on':
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   create-backup-branch:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-      
+
       - name: Create and push main-backup-2 branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Create the backup branch from main
           git checkout -b main-backup-2
-          
+
           # Push the new branch to remote
           git push origin main-backup-2
-          
+
           echo "✓ Successfully created main-backup-2 branch from main"
           echo "✓ All files from main branch have been copied to main-backup-2"
