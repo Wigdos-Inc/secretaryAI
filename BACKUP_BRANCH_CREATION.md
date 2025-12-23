@@ -21,7 +21,7 @@ A bash script `create-backup-branch.sh` is provided for quick execution:
 
 ```bash
 # Make sure you're in the repository root
-cd /path/to/secretaryAI
+cd /path/to/repository
 
 # Run the script (requires push permissions)
 ./create-backup-branch.sh

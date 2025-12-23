@@ -22,6 +22,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Check if branch already exists on remote and delete it
+          if git ls-remote --heads origin main-backup-2 | \
+             grep -q main-backup-2; then
+            echo "Branch already exists on remote, deleting..."
+            git push origin --delete main-backup-2
+          fi
+
+          # Delete local branch if it exists
+          git branch -D main-backup-2 2>/dev/null || true
+
           # Create the backup branch from main
           git checkout -b main-backup-2
 
