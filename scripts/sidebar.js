@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userMenuName = document.getElementById('userMenuName');
 
     const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const hash = window.location.hash.substring(1) || 'overview';
+    const hash = window.location.hash.substring(1) || 'chatbox';
 
     const userData = {
         email: 'email',
@@ -34,15 +34,15 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPage('login');
         updateActiveNav('login');
     } else if (isLoggedIn && authPages.includes(hash)) {
-        window.location.hash = '#overview';
-        loadPage('overview');
-        updateActiveNav('overview');
+        window.location.hash = '#chatbox';
+        loadPage('chatbox');
+        updateActiveNav('chatbox');
     } else if (hash) {
         loadPage(hash);
         updateActiveNav(hash);
     } else {
-        loadPage('overview');
-        updateActiveNav('overview');
+        loadPage('chatbox');
+        updateActiveNav('chatbox');
     }
     
     userMenuTrigger.addEventListener('click', (e) => {
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm('Are you sure you want to logout?')) {
                     localStorage.removeItem('isLoggedIn');
                     localStorage.removeItem('userData');
-                    window.location.hash = '#overview';
+                    window.location.hash = '#chatbox';
                     location.reload();
                 }
             });
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     window.addEventListener('hashchange', () => {
-        const page = window.location.hash.substring(1) || 'overview';
+        const page = window.location.hash.substring(1) || 'chatbox';
         const currentlyLoggedIn = localStorage.getItem('isLoggedIn');
         const authPages = ['login', 'register'];
         const protectedPages = ['history', 'profile', 'checkout'];
@@ -147,9 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPage('login');
             updateActiveNav('login');
         } else if (currentlyLoggedIn && authPages.includes(page)) {
-            window.location.hash = '#overview';
-            loadPage('overview');
-            updateActiveNav('overview');
+            window.location.hash = '#chatbox';
+            loadPage('chatbox');
+            updateActiveNav('chatbox');
         } else {
             loadPage(page);
             updateActiveNav(page);
@@ -199,8 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (loggedIn && authPages.includes(page)) {
-            window.location.hash = '#overview';
-            page = 'overview';
+            window.location.hash = '#chatbox';
+            page = 'chatbox';
         }
         
         try {
