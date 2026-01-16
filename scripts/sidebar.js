@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateNavigationVisibility();
     initUserMenu();
-    setupDebugLogin();
     
     const protectedPages = ['history', 'profile', 'checkout'];
     const authPages = ['login', 'register'];
@@ -236,45 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-    
-    function setupDebugLogin() {
-        const debugBtn = document.getElementById('debugLoginBtn');
-        const debugText = document.getElementById('debugLoginText');
-        
-        if (!debugBtn) return;
-        updateDebugButton();
-        
-        debugBtn.addEventListener('click', () => {
-            if (isLoggedIn) {
-                localStorage.removeItem('isLoggedIn');
-                localStorage.removeItem('userData');
-            } else {
-                const fakeUser = {
-                    email: 'demo@secretaryai.com',
-                    name: 'Demo User',
-                    company: 'SecretaryAI Demo',
-                    loginDate: new Date().toISOString()
-                };
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('userData', JSON.stringify(fakeUser));
-            }
-            location.reload();
-        });
-        
-        function updateDebugButton() {
-            if (localStorage.getItem('isLoggedIn')) {
-                debugBtn.classList.add('logged-in');
-                debugText.textContent = 'Quick Logout';
-                debugBtn.querySelector('i').className = 'bi bi-key-fill';
-            } else {
-                debugBtn.classList.remove('logged-in');
-                debugText.textContent = 'Quick Login';
-                debugBtn.querySelector('i').className = 'bi bi-key';
-            }
-        }
-    }
-
-    setupDebugLogin();
 });
 
 function changeHash(page) {
