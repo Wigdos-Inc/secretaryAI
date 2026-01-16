@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loginDate: new Date().toISOString()
     };
             
-    //localStorage.setItem('isLoggedIn', 'true');
-    //localStorage.setItem('userData', JSON.stringify(userData));
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('userData', JSON.stringify(userData));
     
     updateNavigationVisibility();
     initUserMenu();
@@ -209,8 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 pageContent.innerHTML = `
                     <div class="call-container">
-                        <h2 style="color: #333D8A;">Page Not Found</h2>
-                        <p>The page "${page}" is coming soon!</p>
+                        <h2 style="color: #333D8A;">Page "${page}" Not Found</h2>
                     </div>
                 `;
             }
