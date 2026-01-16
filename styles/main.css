@@ -44,7 +44,8 @@ body {
     position: fixed;
     left: 0;
     top: 0;
-    width: 260px;
+    width: 18vw;
+    min-width: 220px;
     height: 100vh;
     background: #333D8A;
     display: flex;
@@ -54,9 +55,9 @@ body {
 }
 
 .sidebar-header {
-    padding: 35px 25px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 12px;
     background: #333D8A;
     color: white;
