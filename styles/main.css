@@ -124,6 +124,10 @@ body {
 .sidebar-footer {
     padding: 25px;
     border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    color: rgb(150, 150, 150);
 }
 
 .btn-debug-login {
