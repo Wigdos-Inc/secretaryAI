@@ -15,6 +15,13 @@ body {
     overflow-x: hidden;
 }
 
+.bgc-primary {
+    background-color: #333D8A !important;
+}
+.bgc-secondary {
+    background-color: #45AA0E !important;
+}
+
 /* Utility Classes */
 .button_primary {
     background-color: #333D8A !important;
