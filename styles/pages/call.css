@@ -1,0 +1,242 @@
+/* temp file */
+
+/* AI Avatar */
+.ai-avatar-wrapper {
+    margin: 50px auto;
+}
+
+.ai-avatar {
+    width: 220px;
+    height: 220px;
+    margin: 0 auto;
+    background: var(--bg-primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(51, 61, 138, 0.25);
+}
+
+.ai-avatar:hover {
+    transform: scale(1.05);
+}
+.ai-avatar i {
+    font-size: 100px;
+    color: white;
+}
+.ai-avatar.active {
+    box-shadow: 0 8px 40px rgba(51, 61, 138, 0.4);
+}
+.ai-avatar.active::after {
+    content: '';
+    position: absolute;
+    width: 110%;
+    height: 110%;
+    border-radius: 50%;
+    border: 4px solid var(--bg-primary-color);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
+    50% { 
+        transform: scale(1.1); 
+        opacity: 0.3; 
+    }
+}
+
+.ai-info {
+    margin-bottom: 35px;
+}
+.ai-info h4 {
+    color: var(--bg-primary-color);
+    font-size: 1.5em;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.call-status {
+    color: #6b7280;
+    font-size: 1.05em;
+    margin-bottom: 12px;
+}
+.call-timer {
+    color: var(--bg-primary-color);
+    font-size: 1.8em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Call Action Buttons */
+.call-action-buttons {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    margin-top: 50px;
+}
+
+.btn-call-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-call-action i {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    transition: all 0.3s;
+}
+
+.btn-call-action span {
+    font-size: 1em;
+    font-weight: 700;
+}
+
+.btn-pickup i {
+    background: var(--bg-primary-color);
+    color: white;
+}
+
+.btn-pickup span {
+    color: var(--bg-primary-color);
+}
+
+.btn-pickup:hover i {
+    transform: scale(1.05);
+    box-shadow: 0 6px 25px rgba(51, 61, 138, 0.35);
+}
+
+.btn-pickup:active i {
+    transform: scale(0.95);
+}
+
+.btn-hangup i {
+    background: #d32f2f;
+    color: white;
+}
+
+.btn-hangup span {
+    color: #d32f2f;
+}
+
+.btn-hangup:hover i {
+    transform: scale(1.05);
+    box-shadow: 0 6px 25px rgba(211, 47, 47, 0.35);
+}
+
+.btn-hangup:active i {
+    transform: scale(0.95);
+}
+
+/* Extra Controls (Mute/Speaker) */
+.extra-controls {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.btn-control {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: none;
+    background: #757575;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-control:hover {
+    background: #616161;
+    transform: scale(1.05);
+}
+
+.btn-control:active {
+    transform: scale(0.95);
+}
+
+/* Transcript */
+.call-transcript {
+    max-width: 650px;
+    margin: 40px auto 0;
+    padding: 25px;
+    background: white;
+    border-radius: 8px;
+    max-height: 350px;
+    overflow-y: auto;
+    text-align: left;
+    border: 1px solid #e0e0e0;
+}
+
+.transcript-item {
+    margin-bottom: 12px;
+    padding: 12px 15px;
+    border-radius: 6px;
+    display: flex;
+    align-items: start;
+    gap: 12px;
+}
+
+.transcript-item.user-speaking {
+    background: #f5f5f5;
+}
+
+.transcript-item.ai-speaking {
+    background: #e8eaf6;
+}
+
+.transcript-item i {
+    font-size: 18px;
+    margin-top: 3px;
+}
+
+.transcript-item.user-speaking i {
+    color: #757575;
+}
+
+.transcript-item.ai-speaking i {
+    color: var(--bg-primary-color);
+}
+
+/* Voice Indicator */
+.voice-indicator {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.wave-bar {
+    width: 3px;
+    height: 25px;
+    background: var(--bg-primary-color);
+    border-radius: 2px;
+    animation: wave 1s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes wave {
+    0%, 100% { height: 25px; }
+    50% { height: 40px; }
+}
