@@ -15,9 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
         company: 'SecretaryAI User',
         loginDate: new Date().toISOString()
     };
-            
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userData', JSON.stringify(userData));
+    
+    // Moet verwijderd worden in uitgegeven versie (alleen voor debuggen!)
+    if (window.location.hash === '#debugLogin') {
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userData', JSON.stringify(userData));
+    }
     
     updateNavigationVisibility();
     initUserMenu();
@@ -176,6 +179,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadPage(page) {
+        if(window.location.hash === '#debugLogin') {
+            pageContent.innerHTML = `
+                <div class="call-container">
+                    <h2 style="color: #333D8A;">Debug Login Actief!</h2>
+                    <p>Refresh de pagina als je nog niet ingelogd bent.</p>
+                </div>
+            `;
+            return;
+        }
+        
         const loggedIn = localStorage.getItem('isLoggedIn');
         const protectedPages = ['history', 'profile', 'checkout'];
         const authPages = ['login', 'register'];
