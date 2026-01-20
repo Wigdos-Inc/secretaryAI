@@ -1,3 +1,10 @@
+/* 
+=============================================================
+All Scripts related to Sidebar Functionality 
+=============================================================
+*/
+
+
 // Navigation and User Menu for SecretaryAI
 document.addEventListener('DOMContentLoaded', () => {
     const navItems = document.querySelectorAll('.nav-item');
