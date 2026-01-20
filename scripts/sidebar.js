@@ -28,6 +28,28 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userData', JSON.stringify(userData));
     }
+    // Easier Debug: window.debug.acc() in console
+    window.debug = {
+        acc: () => {
+            if (!isLoggedIn) {
+                console.log("Login Override");
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userData', JSON.stringify(userData));
+                setTimeout(() => {
+                    location.hash = '#profile';
+                    location.reload();
+                }, 500);
+            } else {
+                console.log("Logout Override");
+                localStorage.clear();
+                setTimeout(() => {
+                    location.hash = '#chatbox';
+                    location.reload();
+                }, 500);
+            }
+        }
+    }
+    console.debug = window.debug;
     
     updateNavigationVisibility();
     initUserMenu();
