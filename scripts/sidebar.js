@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userMenuName = document.getElementById('userMenuName');
 
     const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const hash = window.location.hash.substring(1) || 'overview';
+    const hash = window.location.hash.substring(1) || 'chatbox';
 
     const userData = {
         email: 'email',
@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     updateNavigationVisibility();
     initUserMenu();
-    setupDebugLogin();
     
     const protectedPages = ['history', 'profile', 'checkout'];
     const authPages = ['login', 'register'];
@@ -34,15 +33,15 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPage('login');
         updateActiveNav('login');
     } else if (isLoggedIn && authPages.includes(hash)) {
-        window.location.hash = '#overview';
-        loadPage('overview');
-        updateActiveNav('overview');
+        window.location.hash = '#chatbox';
+        loadPage('chatbox');
+        updateActiveNav('chatbox');
     } else if (hash) {
         loadPage(hash);
         updateActiveNav(hash);
     } else {
-        loadPage('overview');
-        updateActiveNav('overview');
+        loadPage('chatbox');
+        updateActiveNav('chatbox');
     }
     
     userMenuTrigger.addEventListener('click', (e) => {
@@ -93,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (confirm('Are you sure you want to logout?')) {
                     localStorage.removeItem('isLoggedIn');
                     localStorage.removeItem('userData');
-                    window.location.hash = '#overview';
+                    window.location.hash = '#chatbox';
                     location.reload();
                 }
             });
@@ -137,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     window.addEventListener('hashchange', () => {
-        const page = window.location.hash.substring(1) || 'overview';
+        const page = window.location.hash.substring(1) || 'chatbox';
         const currentlyLoggedIn = localStorage.getItem('isLoggedIn');
         const authPages = ['login', 'register'];
         const protectedPages = ['history', 'profile', 'checkout'];
@@ -147,9 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPage('login');
             updateActiveNav('login');
         } else if (currentlyLoggedIn && authPages.includes(page)) {
-            window.location.hash = '#overview';
-            loadPage('overview');
-            updateActiveNav('overview');
+            window.location.hash = '#chatbox';
+            loadPage('chatbox');
+            updateActiveNav('chatbox');
         } else {
             loadPage(page);
             updateActiveNav(page);
@@ -199,8 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (loggedIn && authPages.includes(page)) {
-            window.location.hash = '#overview';
-            page = 'overview';
+            window.location.hash = '#chatbox';
+            page = 'chatbox';
         }
         
         try {
@@ -236,45 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-    
-    function setupDebugLogin() {
-        const debugBtn = document.getElementById('debugLoginBtn');
-        const debugText = document.getElementById('debugLoginText');
-        
-        if (!debugBtn) return;
-        updateDebugButton();
-        
-        debugBtn.addEventListener('click', () => {
-            if (isLoggedIn) {
-                localStorage.removeItem('isLoggedIn');
-                localStorage.removeItem('userData');
-            } else {
-                const fakeUser = {
-                    email: 'demo@secretaryai.com',
-                    name: 'Demo User',
-                    company: 'SecretaryAI Demo',
-                    loginDate: new Date().toISOString()
-                };
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('userData', JSON.stringify(fakeUser));
-            }
-            location.reload();
-        });
-        
-        function updateDebugButton() {
-            if (localStorage.getItem('isLoggedIn')) {
-                debugBtn.classList.add('logged-in');
-                debugText.textContent = 'Quick Logout';
-                debugBtn.querySelector('i').className = 'bi bi-key-fill';
-            } else {
-                debugBtn.classList.remove('logged-in');
-                debugText.textContent = 'Quick Login';
-                debugBtn.querySelector('i').className = 'bi bi-key';
-            }
-        }
-    }
-
-    setupDebugLogin();
 });
 
 function changeHash(page) {
