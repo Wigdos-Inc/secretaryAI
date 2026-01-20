@@ -26,12 +26,6 @@ body {
 .button_primary:hover {
     background-color: var(--bg-secondary-color) !important;
 }
-.btn-primary:hover {
-    background: #2a3270;
-}
-.btn-primary:active {
-    transform: scale(0.98);
-}
 
 
 .font-large {
@@ -177,10 +171,6 @@ body {
         gap: 15px;
     }
 
-    .search-bar {
-        min-width: 100%;
-    }
-
     .sidebar-nav {
         display: flex;
         overflow-x: auto;
@@ -199,35 +189,5 @@ body {
     .nav-item.active {
         border-left: none;
         border-bottom-color: var(--bg-secondary-color);
-    }
-
-    .call-container,
-    .settings-container,
-    .analytics-container,
-    .profile-container {
-        padding: 40px 20px;
-    }
-
-    .ai-avatar {
-        width: 180px;
-        height: 180px;
-    }
-
-    .ai-avatar i {
-        font-size: 85px;
-    }
-
-    .btn-call-action i {
-        width: 85px;
-        height: 85px;
-        font-size: 34px;
-    }
-
-    .filters-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .form-row {
-        grid-template-columns: 1fr;
     }
 }

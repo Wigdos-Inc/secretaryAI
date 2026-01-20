@@ -34,3 +34,12 @@
 .search-bar input::placeholder {
     color: #9ca3af;
 }
+
+
+
+@media (max-width: 768px) {
+
+    .search-bar {
+        min-width: 100%;
+    }
+}
