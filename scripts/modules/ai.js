@@ -11,55 +11,57 @@
 
 
 // Import Gemini API
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
 // Initialize AI
-const ai = new GoogleGenAI({});
+const ai = new GoogleGenerativeAI("AIzaSyA5Ph3TmsKERzTSD9CZLQsDPJl0pfgaAR4");
 
 // API Class
 class Message {
 
     constructor(history, instructions) {
 
-        this.model = "gemini-1.5-flash";
-        this.contents = history;
-        this.config = {
+        this.model = ai.getGenerativeModel({
+            model: "gemini-1.5-flash",
             systemInstruction: instructions,
-            temperature: 0.3
-        }
+            generationConfig: {
+                temperature: 0.3
+            }
+        });
+
+        this.chat = this.model.startChat({
+            history: history
+        });
     }
     
-    async send() {
+    async send(message) {
 
-        const response = await ai.models.generateContent(this);
-        return response.text;
+        const output = await this.chat.sendMessage(message);
+        return output.response.text;
     }
 }
 
 
 
-/* Templates */
-
-const baseInstructions = {
-    summary: "You are a...",
-    assistant: "You are a..."
-}
+// Import/Declare Templates
+const jsonFetch = await fetch('../json/aiTemplates.json');
+const aiTemplates = await jsonFetch.json();
 
 const emptyChat = {
     history: [],
-    instructions: baseInstructions.assistant,
+    transcript: {},
     summary: "",
     title: "",
     messageCount: 0,
     totalCount: 0,
-    activity: "" // Chance with current timestamp (example: "January 23, 2026 at 12:06:51 PM UTC+1")
+    activity: "" // Change with current timestamp (example: "January 23, 2026 at 12:06:51 PM UTC+1")
 }
 
 
 
 /* API Functionality */
 
-export async function prompt(message, chatData = {}) {
+export async function prompt(input, chatData = {}) {
 
     console.log("Received chat prompt.");
 
@@ -70,47 +72,56 @@ export async function prompt(message, chatData = {}) {
     }
     
     // Create new Chat if chatData is Empty (happens on fresh chats)
-    if (!Object.keys(chatData).length) chatData = emptyChat;
+    if (!Object.keys(chatData).length) {
+        chatData = { ...emptyChat };
+        chatData.history.push(aiTemplates.baseInstructions.opening);
+    }
 
-
-    // Add prompt to history and check for summarization need
-    chatData.history.concat([
-        { role: "model", parts: [{ text: message.ai }] },
-        { role: "user", parts: [{ text: message.user }] }
-    ]);
-    chatData.messageCount++;
-    chatData.totalCount++;
 
     // Check to Summarize Chat History
     if (chatData.messageCount >= 15) chatData = await summarize(chatData);
 
+    // Create Instructions (with Summary)
+    let instructions = aiTemplates.baseInstructions.assistant;
+    if (chatData.summary) instructions += `\n\n\nCONVERSATION SUMMARY:\n\n${chatData.summary}`;
+    
+
+    console.log("Prompting AI");
 
     // Send Prompt
+    const message = new Message(chatData.history, chatData.instructions);
+    const response = await message.send(input);
+    
+    // Add Message and Response to History
+    chatData.history = chatData.history.concat([
+        { role: "user", parts: [{ text: input }] },
+        { role: "model", parts: [{ text: response }] }
+    ]);
+    chatData.messageCount++;
+    chatData.totalCount++;
 
+    return { output: response, chatData: chatData }
 }
 
 async function summarize(chatData) {
 
+    console.log("Chat Buffer Full. Updating Summary");
+
     // Seperate first 10 entries
     const toSummarize = chatData.history.splice(0, 10);
+    chatData.messageCount = Math.floor(chatData.history.length/2);
 
     // Prep Instructions
-    let instructions = baseInstructions.summary;
-    instructions += `OLD SUMMARY: ${chatData.summary}`
+    let instructions = aiTemplates.baseInstructions.summary;
+    if (chatData.summary) instructions += `\n\n\nOLD SUMMARY:\n\n${chatData.summary}`;
 
     // Create New Summary
     const message = new Message(toSummarize, instructions);
-    chatData.summary = await message.send();
+    chatData.summary = await message.send("Please summarize our conversation.");
+
     return chatData;
 }
 
 
-/*
-
-Rules:
-- Minimum of 5 Chats should be fully loaded
-- Maximum of 14 Chats should be fully loaded
-- At 15, 10 chats should be put into the summary
-- Summary will be worked into systemInstruction
-
-*/
+// Debugging
+document.getElementById("ai").innerHTML = await prompt("What is the square root of 9?");
