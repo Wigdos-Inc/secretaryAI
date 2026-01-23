@@ -89,7 +89,7 @@ export async function prompt(input, chatData = {}) {
     console.log("Prompting AI");
 
     // Send Prompt
-    const message = new Message(chatData.history, chatData.instructions);
+    const message = new Message(chatData.history, instructions);
     const response = await message.send(input);
     
     // Add Message and Response to History
