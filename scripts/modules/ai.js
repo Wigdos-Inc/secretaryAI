@@ -139,5 +139,12 @@ async function summarize(chatData) {
 
 // Debugging
 const userPrompt = window.prompt("What do you want to ask the AI?");
-const result = await prompt(userPrompt);
-document.getElementById("ai").innerHTML = result.output;
+if (userPrompt)
+{
+    const result = await prompt(userPrompt);
+    document.getElementById("ai").innerHTML = result.output;
+}
+else {
+    window.alert("You didn't fill in a prompt.");
+    location.reload();
+}
