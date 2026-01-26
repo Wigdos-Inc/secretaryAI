@@ -13,8 +13,9 @@
 // Import Gemini API
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-// Initialize AI
-const ai = new GoogleGenerativeAI("AIzaSyA5Ph3TmsKERzTSD9CZLQsDPJl0pfgaAR4");
+// Initialize AI (get API Key from n8n to avoid Google nonsense)
+// Yes I know it's smushed into one line beyond recognition. This took hours, I don't care
+const ai = new GoogleGenerativeAI((await (await fetch("https://harveygrowthproperties.app.n8n.cloud/webhook/getApiKey?target=gemini")).json()).apiKey);
 
 // API Class
 class Message {
@@ -22,7 +23,7 @@ class Message {
     constructor(history, instructions) {
 
         this.model = ai.getGenerativeModel({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             systemInstruction: instructions,
             generationConfig: {
                 temperature: 0.3
@@ -36,8 +37,15 @@ class Message {
     
     async send(message) {
 
-        const output = await this.chat.sendMessage(message);
-        return output.response.text;
+        console.log(`Sending Message: "${message}"`);
+        try {
+            const response = await this.chat.sendMessage(message);
+            return response.response.text();
+        }
+        catch (err) {
+            console.error("Failed to access Gemini API", err);
+            return null;
+        }
     }
 }
 
@@ -49,7 +57,7 @@ const aiTemplates = await jsonFetch.json();
 
 const emptyChat = {
     history: [],
-    transcript: {},
+    transcript: [{ ai: aiTemplates.baseInstructions.opening }],
     summary: "",
     title: "",
     messageCount: 0,
@@ -72,10 +80,7 @@ export async function prompt(input, chatData = {}) {
     }
     
     // Create new Chat if chatData is Empty (happens on fresh chats)
-    if (!Object.keys(chatData).length) {
-        chatData = { ...emptyChat };
-        chatData.history.push(aiTemplates.baseInstructions.opening);
-    }
+    if (!Object.keys(chatData).length) chatData = { ...emptyChat };
 
 
     // Check to Summarize Chat History
@@ -91,15 +96,24 @@ export async function prompt(input, chatData = {}) {
     // Send Prompt
     const message = new Message(chatData.history, instructions);
     const response = await message.send(input);
+
+    if (response === null) return "Error, see console for more details.";
     
-    // Add Message and Response to History
+
+    // Add Message and Response to History and Transcript
     chatData.history = chatData.history.concat([
         { role: "user", parts: [{ text: input }] },
         { role: "model", parts: [{ text: response }] }
     ]);
     chatData.messageCount++;
+
+    chatData.transcript.push({
+        user: input,
+        ai: response
+    });
     chatData.totalCount++;
 
+    // Return Response and Updated DB Data
     return { output: response, chatData: chatData }
 }
 
@@ -108,8 +122,8 @@ async function summarize(chatData) {
     console.log("Chat Buffer Full. Updating Summary");
 
     // Seperate first 10 entries
-    const toSummarize = chatData.history.splice(0, 10);
-    chatData.messageCount = Math.floor(chatData.history.length/2);
+    const toSummarize = chatData.history.splice(0, 20);
+    chatData.messageCount = chatData.history.length/2;
 
     // Prep Instructions
     let instructions = aiTemplates.baseInstructions.summary;
@@ -124,4 +138,6 @@ async function summarize(chatData) {
 
 
 // Debugging
-document.getElementById("ai").innerHTML = await prompt("What is the square root of 9?");
+const userPrompt = window.prompt("What do you want to ask the AI?");
+const result = await prompt(userPrompt);
+document.getElementById("ai").innerHTML = result.output;
