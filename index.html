@@ -62,10 +62,13 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Firebase SDK (compat) and Hosting init -- loaded deferred so hosting-provided config is applied -->
-    <script defer src="/__/firebase/12.8.0/firebase-app-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/init.js"></script>
+    <!-- Use CDN copies of the compat SDK when running locally -->
+    <script defer src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.8.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore-compat.js"></script>
+    <!-- Local init that you should replace with your project config (firebase/init.js) -->
+    <!-- Append ?useEmulator=true for local development so init.js connects to auth/firestore emulators -->
+    <script defer src="firebase/init.js?useEmulator=true"></script>
 
     <!-- Auth wrapper exposes window.auth and keeps localStorage in sync -->
     <script defer src="scripts/modules/auth.js"></script>
