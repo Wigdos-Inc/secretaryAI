@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           npm ci
-          if node -e "process.exit(!(require('./package.json').scripts && require('./package.json').scripts.build))"; then
+          if node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.build ? 0 : 1)"; then
             npm run build
           else
             echo "No build script, skipping build"
