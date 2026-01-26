@@ -117,13 +117,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             
-            document.getElementById('dropdownLogout').addEventListener('click', () => {
-                if (confirm('Are you sure you want to logout?')) {
+            document.getElementById('dropdownLogout').addEventListener('click', async () => {
+                if (!confirm('Are you sure you want to logout?')) return;
+                try {
+                    if (window.auth && window.auth.logout) {
+                        await window.auth.logout();
+                    } else {
+                        localStorage.removeItem('isLoggedIn');
+                        localStorage.removeItem('userData');
+                    }
+                } catch (err) {
+                    console.error('Error during logout:', err);
+                    // fallback to clearing local state
                     localStorage.removeItem('isLoggedIn');
                     localStorage.removeItem('userData');
-                    window.location.hash = '#chatbox';
-                    location.reload();
                 }
+
+                window.location.hash = '#chatbox';
+                location.reload();
             });
         } else {
             userMenuName.textContent = 'Account';

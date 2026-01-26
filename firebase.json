@@ -6,7 +6,8 @@
     "indexes": "firebase/firestore.indexes.json"
   },
   "hosting": {
-    "public": "public",
+    "site": "secretary-ai",
+    "public": "./",
     "ignore": [
       "firebase.json",
       "**/.*",
