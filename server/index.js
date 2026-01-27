@@ -22,6 +22,7 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
+const admin = require('firebase-admin');
 
 const DG_API_KEY = process.env.DG_API_KEY;
 const AGENT_URL = process.env.AGENT_URL || null;
@@ -29,6 +30,25 @@ const PORT = process.env.PORT || 3000;
 
 if (!DG_API_KEY) {
   console.warn('Warning: DG_API_KEY not set. Deepgram forwarding will fail without it.');
+}
+
+// Initialize Firebase Admin if service account provided.
+let firestore = null;
+try {
+  if (process.env.SERVICE_ACCOUNT_JSON) {
+    const svc = JSON.parse(process.env.SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({ credential: admin.credential.cert(svc) });
+    firestore = admin.firestore();
+    console.log('Initialized Firebase Admin from SERVICE_ACCOUNT_JSON');
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    admin.initializeApp();
+    firestore = admin.firestore();
+    console.log('Initialized Firebase Admin via GOOGLE_APPLICATION_CREDENTIALS');
+  } else {
+    console.log('No service account provided; Firestore writes disabled.');
+  }
+} catch (e) {
+  console.error('Failed to initialize Firebase Admin:', e);
 }
 
 const app = express();
@@ -82,6 +102,10 @@ wss.on('connection', function connection(twilioWs, req) {
   console.log('Twilio Media Stream connected');
 
   const dg = createDeepgramSocket();
+  // Per-connection call context
+  let callSid = null;
+  let fromNumber = null;
+  let toNumber = null;
 
   if (!dg) console.error('Deepgram socket not created (DG_API_KEY missing)');
 
@@ -96,13 +120,37 @@ wss.on('connection', function connection(twilioWs, req) {
           const transcript = data.channel.alternatives[0].transcript;
           const isFinal = data.is_final || false;
           console.log('[Deepgram]', isFinal ? 'FINAL' : 'INTERIM', transcript);
-          if (isFinal && AGENT_URL) {
-            // POST transcript to agent URL
-            fetch(AGENT_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ transcript })
-            }).catch(e => console.error('Agent post failed', e));
+          if (isFinal) {
+            // Write final transcript to Firestore if available
+            try {
+              if (firestore) {
+                // Determine sellerId: prefer the called number (toNumber)
+                const rawSeller = (toNumber || fromNumber || 'unknown').toString();
+                const sellerId = rawSeller.replace(/[^0-9a-zA-Z]/g, '_');
+                const sessionId = callSid || (Date.now()).toString();
+                const docRef = firestore.collection('Sellers').doc(`${sellerId}_sessions`).collection('sessions').doc(sessionId);
+                const payload = {
+                  transcript,
+                  callSid: callSid || null,
+                  from: fromNumber || null,
+                  to: toNumber || null,
+                  recordedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  deepgram: data
+                };
+                docRef.set(payload).catch(e => console.error('Firestore write failed', e));
+              }
+            } catch (e) {
+              console.error('Error writing transcript to Firestore', e);
+            }
+
+            if (AGENT_URL) {
+              // POST transcript to agent URL
+              fetch(AGENT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript })
+              }).catch(e => console.error('Agent post failed', e));
+            }
           }
         }
       } catch (e) {
@@ -113,7 +161,7 @@ wss.on('connection', function connection(twilioWs, req) {
     dg.on('close', () => console.log('Deepgram socket closed'));
   }
 
-  twilioWs.on('message', function incoming(message) {
+    twilioWs.on('message', function incoming(message) {
     // Twilio sends JSON text messages describing events
     // Example: { "event": "media", "media": { "payload": "BASE64DATA" }, ... }
     try {
@@ -126,7 +174,10 @@ wss.on('connection', function connection(twilioWs, req) {
           dg.send(bin);
         }
       } else if (msg.event === 'start') {
-        console.log('Media stream started for callSid=', msg.start.callSid || '');
+        callSid = msg.start.callSid || null;
+        fromNumber = msg.start.from || null;
+        toNumber = msg.start.to || null;
+        console.log('Media stream started for callSid=', callSid, 'from=', fromNumber, 'to=', toNumber);
       } else if (msg.event === 'stop') {
         console.log('Media stream stopped');
         if (dg) dg.close();
