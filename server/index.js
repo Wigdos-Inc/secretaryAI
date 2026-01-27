@@ -26,7 +26,7 @@ const admin = require('firebase-admin');
 
 const DG_API_KEY = process.env.DG_API_KEY;
 const AGENT_URL = process.env.AGENT_URL || null;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 if (!DG_API_KEY) {
   console.warn('Warning: DG_API_KEY not set. Deepgram forwarding will fail without it.');
