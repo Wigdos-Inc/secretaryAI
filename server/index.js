@@ -199,3 +199,14 @@ server.listen(PORT, () => {
   console.log('TwiML answer endpoint: POST /twilio/answer');
   console.log('WebSocket path for Twilio streams: /twilio/stream');
 });
+
+app.post('/twilio/debug-webhook', express.json(), (req, res) => {
+  // req.body will contain Twilio's debug payload
+  console.log('Twilio debug event:', req.body);
+
+  // Example: store or forward (pseudo)
+  // saveToFirestore('twilio_debug', req.body);
+  // forwardToSlack(req.body);
+
+  res.sendStatus(204);
+});
