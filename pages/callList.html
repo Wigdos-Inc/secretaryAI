@@ -3,10 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Call History - Secretary AI</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/pages/callList.css">
 </head>
 <body>
-    <!-- Displays all deals/calls in a list -->
-    
+    <div class="call-list-container">
+        <h1 class="call-list-title">Call History</h1>
+        <div id="callListContent" class="call-list-content">
+            <!-- Call cards will be dynamically inserted here -->
+        </div>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <p>No calls yet. Start making calls to see your history here.</p>
+        </div>
+    </div>
+
+    <script src="../scripts/pages/callList.js"></script>
 </body>
 </html>

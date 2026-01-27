@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buildUserDropdown(user, profile);
     });
     
-    const protectedPages = ['history', 'profile', 'checkout'];
+    const protectedPages = ['profile', 'checkout', 'callList'];
     const authPages = ['login', 'register'];
     
     if (!isLoggedIn && protectedPages.includes(hash)) {
@@ -70,6 +70,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <a href="#profile" class="dropdown-item" data-page="profile">
                         <i class="bi bi-person-circle"></i>
                         <span>My Profile</span>
+                    </a>
+                    <a href="#callList" class="dropdown-item" data-page="callList">
+                        <i class="bi bi-telephone-fill"></i>
+                        <span>Call History</span>
                     </a>
                     <div class="dropdown-divider"></div>
                     <button class="dropdown-item logout" id="dropdownLogout">
@@ -135,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const page = window.location.hash.substring(1) || 'chatbox';
         const currentlyLoggedIn = localStorage.getItem('isLoggedIn');
         const authPages = ['login', 'register'];
-        const protectedPages = ['history', 'profile', 'checkout'];
+        const protectedPages = ['profile', 'checkout', 'callList'];
         
         if (!currentlyLoggedIn && protectedPages.includes(page)) {
             window.location.hash = '#login';
@@ -157,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems.forEach(item => {
             const page = item.dataset.page;
             
-            if (!loggedIn && (page === 'profile' || page === 'history')) {
+            if (!loggedIn && (page === 'profile' || page === 'callList')) {
                 item.style.display = 'none';
             } else {
                 item.style.display = 'flex';
@@ -174,6 +178,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadPage(page) {
+        // Redirect old 'history' page to new 'callList' page
+        if (page === 'history') {
+            window.location.hash = '#callList';
+            page = 'callList';
+        }
+        
         if(window.location.hash === '#debugLogin') {
             pageContent.innerHTML = `
                 <div class="call-container">
@@ -185,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const loggedIn = localStorage.getItem('isLoggedIn');
-        const protectedPages = ['history', 'profile', 'checkout'];
+        const protectedPages = ['profile', 'checkout', 'callList'];
         const authPages = ['login', 'register'];
         
         if (!loggedIn && protectedPages.includes(page)) {

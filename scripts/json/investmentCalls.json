@@ -1,0 +1,64 @@
+{
+  "investmentCalls": [
+    {
+      "id": "call_001",
+      "date": "2026-01-27",
+      "title": "Downtown Commercial Complex Opportunity",
+      "summarization": "Discussed a 5-story commercial building in the downtown area. Property valued at $2.5M with potential 8% annual ROI. Current occupancy at 85%, needs minor renovations. Investor interested in partnership structure."
+    },
+    {
+      "id": "call_002",
+      "date": "2026-01-26",
+      "title": "Residential Multi-Family Development",
+      "summarization": "New construction project for 24-unit apartment complex. Total investment $4.2M, projected completion in 18 months. Located in growing suburban area with strong rental demand. Developer seeking equity partners for 30% stake."
+    },
+    {
+      "id": "call_003",
+      "date": "2026-01-25",
+      "title": "Industrial Warehouse Portfolio",
+      "summarization": "Portfolio of 3 warehouse properties totaling 150,000 sq ft. Current asking price $6.8M, fully leased to logistics companies. Long-term leases with annual escalations. Client considering leveraged buyout strategy."
+    },
+    {
+      "id": "call_004",
+      "date": "2026-01-24",
+      "title": "Mixed-Use Retail Development",
+      "summarization": "Ground-floor retail with residential units above. Prime location near university campus. Investment needed: $3.1M. Strong foot traffic area, 92% occupancy rate. Discussed refinancing options and value-add improvements."
+    },
+    {
+      "id": "call_005",
+      "date": "2026-01-23",
+      "title": "Luxury Vacation Rental Properties",
+      "summarization": "Collection of 5 beachfront condos for short-term rental business. Total package $2.8M. Average occupancy 70% during peak season. Discussed property management options and seasonal revenue projections."
+    },
+    {
+      "id": "call_006",
+      "date": "2026-01-22",
+      "title": "Office Building Conversion Project",
+      "summarization": "Converting outdated office space into modern co-working facility. Building purchase $1.9M, renovation budget $600K. Located in tech hub area. Discussed phased renovation approach and pre-leasing strategy."
+    },
+    {
+      "id": "call_007",
+      "date": "2026-01-21",
+      "title": "Senior Living Facility Investment",
+      "summarization": "Established assisted living facility with 80 units. Asking price $7.5M, operating at 95% capacity. Strong demographics in area with aging population. Reviewed operational metrics and expansion possibilities."
+    },
+    {
+      "id": "call_008",
+      "date": "2026-01-20",
+      "title": "Strip Mall Acquisition",
+      "summarization": "8-unit strip mall with anchor grocery store tenant. Purchase price $3.4M, cap rate 6.5%. All units currently leased, discussed tenant mix optimization and potential for rent increases upon lease renewals."
+    },
+    {
+      "id": "call_009",
+      "date": "2026-01-19",
+      "title": "Student Housing Development",
+      "summarization": "New build project near major university: 120-bed student housing complex. Total cost $5.6M including land. Pre-leasing shows strong demand. Discussed construction timeline and financing structure with institutional lender."
+    },
+    {
+      "id": "call_010",
+      "date": "2026-01-18",
+      "title": "Self-Storage Facility Opportunity",
+      "summarization": "Climate-controlled storage facility on 2 acres. 200 units, 78% occupied. Purchase price $1.2M. Analyzed local market demand and discussed digital marketing strategy to increase occupancy to 90%+ within 12 months."
+    }
+  ]
+}
