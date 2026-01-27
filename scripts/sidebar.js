@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buildUserDropdown(user, profile);
     });
     
-    const protectedPages = ['history', 'profile', 'checkout'];
+    const protectedPages = ['profile', 'checkout'];
     const authPages = ['login', 'register'];
     
     if (!isLoggedIn && protectedPages.includes(hash)) {
@@ -70,10 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <a href="#profile" class="dropdown-item" data-page="profile">
                         <i class="bi bi-person-circle"></i>
                         <span>My Profile</span>
-                    </a>
-                    <a href="#history" class="dropdown-item" data-page="history">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Conversation History</span>
                     </a>
                     <div class="dropdown-divider"></div>
                     <button class="dropdown-item logout" id="dropdownLogout">
@@ -139,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const page = window.location.hash.substring(1) || 'chatbox';
         const currentlyLoggedIn = localStorage.getItem('isLoggedIn');
         const authPages = ['login', 'register'];
-        const protectedPages = ['history', 'profile', 'checkout'];
+        const protectedPages = ['profile', 'checkout'];
         
         if (!currentlyLoggedIn && protectedPages.includes(page)) {
             window.location.hash = '#login';
@@ -161,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems.forEach(item => {
             const page = item.dataset.page;
             
-            if (!loggedIn && (page === 'profile' || page === 'history')) {
+            if (!loggedIn && (page === 'profile')) {
                 item.style.display = 'none';
             } else {
                 item.style.display = 'flex';
@@ -189,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const loggedIn = localStorage.getItem('isLoggedIn');
-        const protectedPages = ['history', 'profile', 'checkout'];
+        const protectedPages = ['profile', 'checkout'];
         const authPages = ['login', 'register'];
         
         if (!loggedIn && protectedPages.includes(page)) {
