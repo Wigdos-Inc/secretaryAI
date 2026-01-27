@@ -55,76 +55,73 @@ document.addEventListener('DOMContentLoaded', () => {
         userDropdown.classList.remove('show');
         userMenuTrigger.classList.remove('active');
     });
-    
-    function initUserMenu() {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        
-        if (isLoggedIn && userData.name) {
-            userMenuName.textContent = userData.name;
-            
-            userDropdown.innerHTML = `
-                <a href="#profile" class="dropdown-item" data-page="profile">
-                    <i class="bi bi-person-circle"></i>
-                    <span>My Profile</span>
-                </a>
-                <a href="#history" class="dropdown-item" data-page="history">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Conversation History</span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <button class="dropdown-item logout" id="dropdownLogout">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
-                </button>
-            `;
-            
-            userDropdown.querySelectorAll('[data-page]').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const page = item.dataset.page;
-                    loadPage(page);
-                    window.location.hash = '#' + page;
-                    userDropdown.classList.remove('show');
-                    userMenuTrigger.classList.remove('active');
-                });
-            });
-            
-            document.getElementById('dropdownLogout').addEventListener('click', () => {
-                if (confirm('Are you sure you want to logout?')) {
-                    localStorage.removeItem('isLoggedIn');
-                    localStorage.removeItem('userData');
-                    window.location.hash = '#chatbox';
-                    location.reload();
-                }
-            });
-        } else {
-            userMenuName.textContent = 'Account';
-            
-            userDropdown.innerHTML = `
-                <div class="dropdown-divider"></div>
-                <a href="#login" class="dropdown-item" data-page="login">
-                    <i class="bi bi-box-arrow-in-right"></i>
-                    <span>Login</span>
-                </a>
-                <a href="#register" class="dropdown-item" data-page="register">
-                    <i class="bi bi-person-plus"></i>
-                    <span>Sign Up</span>
-                </a>
-            `;
-            
-            userDropdown.querySelectorAll('[data-page]').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const page = item.dataset.page;
-                    loadPage(page);
-                    window.location.hash = '#' + page;
-                    userDropdown.classList.remove('show');
-                    userMenuTrigger.classList.remove('active');
-                });
-            });
-        }
-    }
 
+        function buildUserDropdownFromStorage() {
+            const profile = JSON.parse(localStorage.getItem('userData') || 'null');
+            buildUserDropdown(profile ? { uid: null } : null, profile);
+        }
+
+        function buildUserDropdown(user, profile) {
+            const displayName = (profile && ((profile.firstname || '') + ' ' + (profile.lastname || ''))?.trim()) || (profile && profile.email) || 'Account';
+            userMenuName.textContent = displayName;
+
+            if (user && profile) {
+                userDropdown.innerHTML = `
+                    <a href="#profile" class="dropdown-item" data-page="profile">
+                        <i class="bi bi-person-circle"></i>
+                        <span>My Profile</span>
+                    </a>
+                    <a href="#history" class="dropdown-item" data-page="history">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Conversation History</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item logout" id="dropdownLogout">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </button>
+                `;
+                userDropdown.querySelectorAll('[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.dataset.page;
+                        loadPage(page);
+                        window.location.hash = '#' + page;
+                        userDropdown.classList.remove('show');
+                        userMenuTrigger.classList.remove('active');
+                    });
+                });
+                const logoutBtn = document.getElementById('dropdownLogout');
+                if (logoutBtn) logoutBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to logout?')) {
+                        signOut();
+                    }
+                });
+            } else {
+                userMenuName.textContent = 'Account';
+                userDropdown.innerHTML = `
+                    <div class="dropdown-divider"></div>
+                    <a href="#login" class="dropdown-item" data-page="login">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        <span>Login</span>
+                    </a>
+                    <a href="#register" class="dropdown-item" data-page="register">
+                        <i class="bi bi-person-plus"></i>
+                        <span>Sign Up</span>
+                    </a>
+                `;
+                userDropdown.querySelectorAll('[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.dataset.page;
+                        loadPage(page);
+                        window.location.hash = '#' + page;
+                        userDropdown.classList.remove('show');
+                        userMenuTrigger.classList.remove('active');
+                    });
+                });
+            }
+        }
 
 
     navItems.forEach(item => {
