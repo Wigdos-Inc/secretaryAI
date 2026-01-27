@@ -80,27 +80,28 @@ input:checked + .slider:before {
 
             <div class="row">
                 <p class="col text-start m-2 mx-5">Phone Number</p>
-                <p class="col text-end m-2 mx-5">+1(555) 123-4567</p>
+                <p id="phone" class="col text-end m-2 mx-5">+1(555) 123-4567</p>
             </div>
             <hr class="mx-5">
             <div class="row">
                 <p class="col text-start m-2 mx-5">Member Since</p>
-                <p class="col text-end m-2 mx-5">January 2024</p>
+                <p id="memberSince" class="col text-end m-2 mx-5">January 2024</p>
             </div>
             <hr class="mx-5">
             <div class="row">
                 <p class="col text-start m-2 mx-5">Account Type</p>
-                <p class="col text-end m-2 mx-5">Premium</p>
+                <p id="accountType" class="col text-end m-2 mx-5">Premium</p>
             </div>
             <hr class="mx-5">
             <div class="row">
                 <p class="col text-start m-2 mx-5">Saved Properties</p>
-                <p class="col text-end m-2 mx-5">12 Properties</p>
+                <p id="savedProperties" class="col text-end m-2 mx-5">0 Properties</p>
             </div>
 
             <div class="mt-5 mb-4">
-                <button class="button_primary fw-bold btn shadow me-3 p-2 px-4 rounded-3">Edit Profile</button>
-                <button class="fw-bold btn shadow p-2 px-4 rounded-3">Change Password</button>
+                <button id="editProfileBtn" class="button_primary fw-bold btn shadow me-3 p-2 px-4 rounded-3">Edit Profile</button>
+                <button id="changePasswordBtn" class="fw-bold btn shadow p-2 px-4 rounded-3">Change Password</button>
+                <button id="clearSavedBtn" class="btn btn-outline-secondary ms-3">Clear Saved Properties</button>
             </div>
         </div>
 
@@ -131,10 +132,10 @@ input:checked + .slider:before {
             </div>
         </div>
 
-        <div class="col shadow rounded-4 p-3 mb-5 pb-5">
+            <div class="col shadow rounded-4 p-3 mb-5 pb-5">
             <h4 class="fw-bold mb-5 mx-5 mt-4">Danger Zone</h4>
             <hr class="mx-5">
-            <button class="fw-bold btn btn-danger mx-5">Delete Account</button>
+            <button id="deleteAccountBtn" class="fw-bold btn btn-danger mx-5">Delete Account</button>
         </div>
     </div>
 
@@ -184,5 +185,7 @@ input:checked + .slider:before {
             </form>
         </div>
     </div>
+
+    <script type="module" src="../scripts/modules/profile.js"></script>
 </body>
 </html>

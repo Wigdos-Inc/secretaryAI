@@ -1,9 +1,9 @@
+import { startAuthListener, signOut, getProfile } from './modules/auth.js';
 /* 
 =============================================================
 All Scripts related to Sidebar Functionality 
 =============================================================
 */
-
 
 // Navigation and User Menu for SecretaryAI
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,46 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const userDropdown = document.getElementById('userDropdown');
     const userMenuName = document.getElementById('userMenuName');
 
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    // Use auth listener to drive UI
     const hash = window.location.hash.substring(1) || 'chatbox';
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
-    const userData = {
-        email: 'email',
-        name: 'Joe Bloggs',
-        company: 'SecretaryAI User',
-        loginDate: new Date().toISOString()
-    };
-    
-    // Moet verwijderd worden in uitgegeven versie (alleen voor debuggen!)
-    if (window.location.hash === '#debugLogin') {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userData', JSON.stringify(userData));
-    }
-    // Easier Debug: window.debug.acc() in console
-    window.debug = {
-        acc: () => {
-            if (!isLoggedIn) {
-                console.log("Login Override");
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('userData', JSON.stringify(userData));
-                setTimeout(() => {
-                    location.hash = '#profile';
-                    location.reload();
-                }, 500);
-            } else {
-                console.log("Logout Override");
-                localStorage.clear();
-                setTimeout(() => {
-                    location.hash = '#chatbox';
-                    location.reload();
-                }, 500);
-            }
-        }
-    }
-    console.debug = window.debug;
-    
     updateNavigationVisibility();
-    initUserMenu();
+
+    // Build initial menu from localStorage, then keep it updated via auth listener
+    buildUserDropdownFromStorage();
+    startAuthListener((user, profile) => {
+        updateNavigationVisibility();
+        buildUserDropdown(user, profile);
+    });
     
     const protectedPages = ['history', 'profile', 'checkout'];
     const authPages = ['login', 'register'];
@@ -83,75 +55,74 @@ document.addEventListener('DOMContentLoaded', () => {
         userDropdown.classList.remove('show');
         userMenuTrigger.classList.remove('active');
     });
-    
-    function initUserMenu() {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        
-        if (isLoggedIn && userData.name) {
-            userMenuName.textContent = userData.name;
-            
-            userDropdown.innerHTML = `
-                <a href="#profile" class="dropdown-item" data-page="profile">
-                    <i class="bi bi-person-circle"></i>
-                    <span>My Profile</span>
-                </a>
-                <a href="#history" class="dropdown-item" data-page="history">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Conversation History</span>
-                </a>
-                <div class="dropdown-divider"></div>
-                <button class="dropdown-item logout" id="dropdownLogout">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
-                </button>
-            `;
-            
-            userDropdown.querySelectorAll('[data-page]').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const page = item.dataset.page;
-                    loadPage(page);
-                    window.location.hash = '#' + page;
-                    userDropdown.classList.remove('show');
-                    userMenuTrigger.classList.remove('active');
-                });
-            });
-            
-            document.getElementById('dropdownLogout').addEventListener('click', () => {
-                if (confirm('Are you sure you want to logout?')) {
-                    localStorage.removeItem('isLoggedIn');
-                    localStorage.removeItem('userData');
-                    window.location.hash = '#chatbox';
-                    location.reload();
-                }
-            });
-        } else {
-            userMenuName.textContent = 'Account';
-            
-            userDropdown.innerHTML = `
-                <div class="dropdown-divider"></div>
-                <a href="#login" class="dropdown-item" data-page="login">
-                    <i class="bi bi-box-arrow-in-right"></i>
-                    <span>Login</span>
-                </a>
-                <a href="#register" class="dropdown-item" data-page="register">
-                    <i class="bi bi-person-plus"></i>
-                    <span>Sign Up</span>
-                </a>
-            `;
-            
-            userDropdown.querySelectorAll('[data-page]').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const page = item.dataset.page;
-                    loadPage(page);
-                    window.location.hash = '#' + page;
-                    userDropdown.classList.remove('show');
-                    userMenuTrigger.classList.remove('active');
-                });
-            });
+
+        function buildUserDropdownFromStorage() {
+            const profile = JSON.parse(localStorage.getItem('userData') || 'null');
+            buildUserDropdown(profile ? { uid: null } : null, profile);
         }
-    }
+
+        function buildUserDropdown(user, profile) {
+            const displayName = (profile && ((profile.firstname || '') + ' ' + (profile.lastname || ''))?.trim()) || (profile && profile.email) || 'Account';
+            userMenuName.textContent = displayName;
+
+            if (user && profile) {
+                userDropdown.innerHTML = `
+                    <a href="#profile" class="dropdown-item" data-page="profile">
+                        <i class="bi bi-person-circle"></i>
+                        <span>My Profile</span>
+                    </a>
+                    <a href="#history" class="dropdown-item" data-page="history">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Conversation History</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item logout" id="dropdownLogout">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </button>
+                `;
+                userDropdown.querySelectorAll('[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.dataset.page;
+                        loadPage(page);
+                        window.location.hash = '#' + page;
+                        userDropdown.classList.remove('show');
+                        userMenuTrigger.classList.remove('active');
+                    });
+                });
+                const logoutBtn = document.getElementById('dropdownLogout');
+                if (logoutBtn) logoutBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to logout?')) {
+                        signOut();
+                    }
+                });
+            } else {
+                userMenuName.textContent = 'Account';
+                userDropdown.innerHTML = `
+                    <div class="dropdown-divider"></div>
+                    <a href="#login" class="dropdown-item" data-page="login">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        <span>Login</span>
+                    </a>
+                    <a href="#register" class="dropdown-item" data-page="register">
+                        <i class="bi bi-person-plus"></i>
+                        <span>Sign Up</span>
+                    </a>
+                `;
+                userDropdown.querySelectorAll('[data-page]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.dataset.page;
+                        loadPage(page);
+                        window.location.hash = '#' + page;
+                        userDropdown.classList.remove('show');
+                        userMenuTrigger.classList.remove('active');
+                    });
+                });
+            }
+        }
+
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -238,15 +209,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 pageContent.innerHTML = html;
                 
                 const scripts = pageContent.querySelectorAll('script');
+                const pageUrl = new URL(`pages/${page}.html`, window.location.href).href;
                 scripts.forEach(script => {
                     const newScript = document.createElement('script');
-                    if (script.src) {
-                        newScript.src = script.src;
+                    // Preserve the script type (e.g. "module") so imports work correctly
+                    if (script.type) newScript.type = script.type;
+
+                    const srcAttr = script.getAttribute('src');
+                    if (srcAttr) {
+                        try {
+                            // Resolve relative src against the page's URL so paths like "../scripts/..." work
+                            newScript.src = new URL(srcAttr, pageUrl).href;
+                        } catch (e) {
+                            // Fallback to original attribute
+                            newScript.src = srcAttr;
+                        }
                     } else {
                         newScript.textContent = script.textContent;
                     }
                     document.body.appendChild(newScript);
                 });
+
+                // Debug: log all buttons contained in the loaded page to console.debug
+                try {
+                    const buttons = pageContent.querySelectorAll('button');
+                    if (buttons && buttons.length) {
+                        console.debug(`Loaded page '${page}' has ${buttons.length} button(s):`);
+                        buttons.forEach(btn => console.debug('button', {
+                            id: btn.id || null,
+                            text: (btn.innerText || btn.textContent || '').trim(),
+                            classes: btn.className || null,
+                            element: btn
+                        }));
+                    } else {
+                        console.debug(`Loaded page '${page}' has no buttons.`);
+                    }
+                } catch (e) {
+                    console.debug('Error while logging buttons for debug:', e);
+                }
             } else {
                 pageContent.innerHTML = `
                     <div class="call-container">
