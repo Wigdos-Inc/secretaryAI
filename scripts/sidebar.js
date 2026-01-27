@@ -71,10 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="bi bi-person-circle"></i>
                         <span>My Profile</span>
                     </a>
-                    <a href="#history" class="dropdown-item" data-page="history">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Conversation History</span>
-                    </a>
                     <div class="dropdown-divider"></div>
                     <button class="dropdown-item logout" id="dropdownLogout">
                         <i class="bi bi-box-arrow-right"></i>
