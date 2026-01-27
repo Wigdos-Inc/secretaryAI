@@ -45,5 +45,26 @@
             <script type="module" src="../scripts/modules/login.js"></script>
         </div>
     </div>
+
+    <script>
+    (function () {
+        const form = document.getElementById('loginForm');
+        if (!form) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            try {
+                await window.auth.login(email, password);
+                // after successful login, go to chatbox and reload so sidebar picks up session
+                window.location.hash = '#chatbox';
+                location.reload();
+            } catch (err) {
+                alert(err.message || 'Login failed');
+                console.error(err);
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
