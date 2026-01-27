@@ -15,8 +15,6 @@ export async function initProfilePage() {
     // New fields
     const phoneEl = document.getElementById('phone');
     const memberSinceEl = document.getElementById('memberSince');
-    const accountTypeEl = document.getElementById('accountType');
-    const savedPropsEl = document.getElementById('savedProperties');
 
     if (phoneEl) phoneEl.textContent = profile.phone || profile.phoneNumber || '—';
     if (memberSinceEl) {
@@ -28,12 +26,7 @@ export async function initProfilePage() {
       else if (typeof created === 'number') label = new Date(created).toLocaleDateString();
       memberSinceEl.textContent = label;
     }
-    if (accountTypeEl) accountTypeEl.textContent = profile.payplanName || profile.accountType || (profile.payplan === 0 ? 'Free' : 'Premium');
-    if (savedPropsEl) {
-      const sp = profile.savedProperties || profile.saved_props || [];
-      const count = Array.isArray(sp) ? sp.length : (typeof sp === 'number' ? sp : 0);
-      savedPropsEl.textContent = `${count} Properties`;
-    }
+    // accountType and savedProperties removed
 
     // Wire buttons
     const editBtn = document.getElementById('editProfileBtn');
@@ -44,16 +37,12 @@ export async function initProfilePage() {
       editBtn.addEventListener('click', async () => {
         const newFirst = prompt('First name', profile.firstname || '') || profile.firstname || '';
         const newLast = prompt('Last name', profile.lastname || '') || profile.lastname || '';
-        const newCompany = prompt('Company', profile.company || '') || profile.company || '';
         const newPhone = prompt('Phone number', profile.phone || profile.phoneNumber || '') || profile.phone || '';
-        const newAccountType = prompt('Account type (Free/Premium)', profile.accountType || profile.payplanName || (profile.payplan === 0 ? 'Free' : 'Premium')) || profile.accountType || '';
         const uid = profile.uid || profile.id || '';
         const updated = await updateProfile(uid, {
           firstname: newFirst,
           lastname: newLast,
-          company: newCompany,
-          phone: newPhone,
-          accountType: newAccountType
+          phone: newPhone
         });
         if (updated) {
           const updatedWithUid = Object.assign({}, updated, { uid });
@@ -82,24 +71,7 @@ export async function initProfilePage() {
       });
     }
 
-    const clearSavedBtn = document.getElementById('clearSavedBtn');
-    if (clearSavedBtn) {
-      clearSavedBtn.addEventListener('click', async () => {
-        if (!confirm('Clear all saved properties for your account? This cannot be undone.')) return;
-        const uid = profile.uid || profile.id || '';
-        try {
-          const updated = await updateProfile(uid, { savedProperties: [] });
-          if (updated) {
-            const updatedWithUid = Object.assign({}, updated, { uid });
-            localStorage.setItem('userData', JSON.stringify(updatedWithUid));
-            alert('Saved properties cleared');
-            location.reload();
-          }
-        } catch (e) {
-          alert('Failed to clear saved properties: ' + (e.message || e));
-        }
-      });
-    }
+    // savedProperties removed — no clear button
   } catch (e) {
     console.error('Init profile page error', e);
   }

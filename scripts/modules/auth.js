@@ -17,18 +17,18 @@ export async function signIn(email, password) {
 }
 
 // Register a new user, create a profile document and send email verification
-export async function register(fullName, company, email, password) {
+export async function register(fullName, company, email, password, phone) {
   const [firstname, ...rest] = (fullName || '').trim().split(' ');
   const lastname = rest.join(' ');
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const uid = cred.user.uid;
+  // Store minimal profile as requested: names, email, phone, memberSince
   await setDoc(doc(db, 'Users', uid), {
     email,
     firstname: firstname || '',
     lastname: lastname || '',
-    company: company || '',
-    payplan: 0,
-    createdAt: serverTimestamp()
+    phone: phone || '',
+    memberSince: cred.user && cred.user.metadata ? cred.user.metadata.creationTime : null
   });
   try { await sendEmailVerification(cred.user); } catch (e) { /* non-blocking */ }
   return cred.user;

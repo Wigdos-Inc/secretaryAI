@@ -4,7 +4,7 @@ import * as authLib from "./auth.js";
 window.handleRegister = async function (event) {
   if (event && event.preventDefault) event.preventDefault();
   const name = (document.getElementById('registerName') || {}).value || '';
-  const company = (document.getElementById('registerCompany') || {}).value || '';
+  const phone = (document.getElementById('registerPhone') || {}).value || '';
   const email = (document.getElementById('registerEmail') || {}).value || '';
   const password = (document.getElementById('registerPassword') || {}).value || '';
   const passwordConfirm = (document.getElementById('registerPasswordConfirm') || {}).value || '';
@@ -13,7 +13,7 @@ window.handleRegister = async function (event) {
   if (!name || !email || !password) return alert('Please fill in all required fields.');
 
   try {
-    const user = await authLib.register(name, company, email, password);
+    const user = await authLib.register(name, '', email, password, phone);
     alert('Account created! A verification email was sent.');
     window.location.hash = '#login';
   } catch (error) {
