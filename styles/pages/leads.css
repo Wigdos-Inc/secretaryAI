@@ -112,7 +112,6 @@
 .lead-badge {
     display: flex;
     flex-direction: column;
-    align20px;
     align-items: center;
     padding-top: 8px;
     border-top: 1px solid rgba(209, 217, 230, 0.3);

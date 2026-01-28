@@ -272,6 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function changeHash(page) {
-    window.location.hash = page;
-}
+// Expose as global because some pages use inline onclick="changeHash('...')".
+window.changeHash = function changeHash(page) {
+    const target = (page || '').toString();
+    window.location.hash = target.startsWith('#') ? target : '#' + target;
+};
