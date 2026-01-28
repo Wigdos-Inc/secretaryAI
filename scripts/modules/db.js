@@ -59,12 +59,22 @@ function dbColRef(pathOrSegments, ...moreSegments) {
 	return collection(db, path);
 }
 
+function logDbUsed(op, pathOrSegments, ...moreSegments) {
+	const path = Array.isArray(pathOrSegments)
+		? pathFrom(...pathOrSegments)
+		: moreSegments.length
+			? pathFrom(pathOrSegments, ...moreSegments)
+			: String(pathOrSegments);
+	console.log("DB Used", { op, path });
+}
+
 /**
  * Read a document.
  * @param {string|string[]} pathOrSegments Firestore doc path e.g. "Users/{uid}" or ["Users", uid]
  * @returns {Promise<object|null>}
  */
 export async function dbGetDoc(pathOrSegments, ...moreSegments) {
+	logDbUsed("getDoc", pathOrSegments, ...moreSegments);
 	const snap = await getDoc(dbDocRef(pathOrSegments, ...moreSegments));
 	return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
@@ -80,6 +90,7 @@ export async function dbGetDoc(pathOrSegments, ...moreSegments) {
  * @param {{merge?: boolean}} [options]
  */
 export async function dbSetDoc(pathOrSegments, data, options = { merge: false }) {
+	logDbUsed("setDoc", pathOrSegments);
 	return setDoc(dbDocRef(pathOrSegments), data, options);
 }
 
@@ -90,6 +101,7 @@ export async function dbSetDoc(pathOrSegments, data, options = { merge: false })
  * Example: dbAddDoc(["Users", uid, "chats"], { ... })
  */
 export async function dbAddDoc(pathOrSegments, data, ...moreSegments) {
+	logDbUsed("addDoc", pathOrSegments, ...moreSegments);
 	const colRef = dbColRef(pathOrSegments, ...moreSegments);
 	return addDoc(colRef, data);
 }

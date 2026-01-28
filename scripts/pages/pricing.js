@@ -1,1 +1,0 @@
-/* Pricing Plan Details (Data from DB) */

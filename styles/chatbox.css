@@ -222,8 +222,16 @@
     color: white;
 }
 
-#promptForm, #chatInput {
+#promptForm {
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#chatInput {
+    flex: 1;
+    min-width: 0;
 }
 
 .send-btn {
