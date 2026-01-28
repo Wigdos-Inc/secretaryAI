@@ -116,6 +116,7 @@ e.input.form.onsubmit = async (event) => {
     if (!input) return;
 
     e.chatItem('user', input);
+    e.input.field.value = "";
     
     // Prompt AI & Display Response
     const output = await prompt(input, chatData ?? {});
