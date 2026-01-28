@@ -25,7 +25,7 @@ const dbPath = {
 }
 
 // Get Chat Data
-let chatData = (uid && cid) ? await DB.dbGetDoc(dbPath.l) : null;
+let chatData = (uid && cid) ? JSON.parse(localStorage.getItem(`chat_${cid}`)) ?? await DB.dbGetDoc(dbPath.l()) ?? null : null;
 
 
 
@@ -139,5 +139,5 @@ e.input.form.onsubmit = async (event) => {
     }
 
     // Store Chat in LocalStorage
-    
+    localStorage.setItem(`chat_${cid}`, JSON.stringify(chatData));
 }
