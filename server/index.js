@@ -243,16 +243,34 @@ app.get('/admin/fetch-recent-failed-calls', async (req, res) => {
     const provided = req.query.secret || req.headers['x-inspect-secret'];
     if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
 
-    const TW_SID = process.env.TWILIO_ACCOUNT_SID;
-    const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-    if (!TW_SID || !TW_TOKEN) return res.status(500).json({ error: 'twilio_creds_missing' });
-
-    const tw = Twilio(TW_SID, TW_TOKEN);
+      // allow selecting which account to use: 'A' (default) or 'B'
+      const fromAccount = (req.body && req.body.fromAccount) || req.query.account || 'A';
     // fetch recent calls (page) and filter failed or errored ones
     const pageSize = parseInt(req.query.limit || '50', 10);
     const calls = await tw.calls.list({ pageSize });
-    const failed = calls.filter(c => (c.status === 'failed' || c.status === 'no-answer' || c.status === 'busy'));
+      // Resolve credentials for requested account
+      function getTwilioConfig(acc) {
+        if (acc === 'B') {
+          return {
+            sid: process.env.TWILIO_ACCOUNT_SID_B,
+            token: process.env.TWILIO_AUTH_TOKEN_B,
+            from: process.env.TWILIO_PHONE_NUMBER_B
+          };
+        }
+        // default A
+        return {
+          sid: process.env.TWILIO_ACCOUNT_SID,
+          token: process.env.TWILIO_AUTH_TOKEN,
+          from: process.env.TWILIO_PHONE_NUMBER
+        };
+      }
 
+      const cfg = getTwilioConfig(fromAccount);
+      if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account: fromAccount });
+      if (!cfg.from) return res.status(500).json({ error: 'twilio_from_number_missing', account: fromAccount });
+
+      const client = Twilio(cfg.sid, cfg.token);
+      const callParams = { from: cfg.from, to };
     // For each failed call, fetch events (limited) for diagnostics
     const results = [];
     for (const c of failed.slice(0, 30)) {
@@ -270,6 +288,86 @@ app.get('/admin/fetch-recent-failed-calls', async (req, res) => {
   } catch (e) {
     console.error('admin fetch error', e);
     return res.status(500).json({ error: 'server_error', detail: e.message });
+  }
+});
+
+// Outbound call trigger (protected)
+// Usage: POST /twilio/outbound with body { to: "+31...", twiml: "<Response>..." }
+// Protect with OUTBOUND_SECRET env or ?secret= query param.
+app.post('/twilio/outbound', express.json(), async (req, res) => {
+  try {
+    const secret = process.env.OUTBOUND_SECRET;
+    const provided = req.query.secret || req.headers['x-outbound-secret'];
+    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+
+    const TW_SID = process.env.TWILIO_ACCOUNT_SID;
+    const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+    if (!TW_SID || !TW_TOKEN) return res.status(500).json({ error: 'twilio_creds_missing' });
+    if (!FROM_NUMBER) return res.status(500).json({ error: 'twilio_from_number_missing' });
+
+    const { to, twiml } = req.body || {};
+    if (!to) return res.status(400).json({ error: 'missing_to' });
+
+    const client = Twilio(TW_SID, TW_TOKEN);
+    const callParams = { from: FROM_NUMBER, to };
+    if (twiml) callParams.twiml = twiml;
+    else callParams.twiml = '<Response><Say voice="alice">This is a test call from Secretary AI.</Say></Response>';
+
+    const call = await client.calls.create(callParams);
+    console.log('Outbound call created', call.sid, 'to', to);
+    return res.json({ sid: call.sid, status: call.status });
+  } catch (e) {
+    console.error('/twilio/outbound error', e);
+    return res.status(500).json({ error: 'call_failed', detail: e.message });
+  }
+});
+
+// Bridge two PSTN numbers by originating a call from the configured Twilio account
+// This creates a call from TWILIO_PHONE_NUMBER -> target, and uses TwiML to Dial the target (connects them).
+// Protected by OUTBOUND_SECRET (same as outbound endpoint).
+app.post('/twilio/bridge', express.json(), async (req, res) => {
+  try {
+    const secret = process.env.OUTBOUND_SECRET;
+    const provided = req.query.secret || req.headers['x-outbound-secret'];
+    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+
+    // allow selecting which account to use to originate the bridge leg (A or B)
+    const fromAccount = (req.body && req.body.fromAccount) || req.query.account || 'A';
+
+    const { target } = req.body || {};
+    if (!target) return res.status(400).json({ error: 'missing_target' });
+
+    function getTwilioConfig(acc) {
+      if (acc === 'B') {
+        return {
+          sid: process.env.TWILIO_ACCOUNT_SID_B,
+          token: process.env.TWILIO_AUTH_TOKEN_B,
+          from: process.env.TWILIO_PHONE_NUMBER_B
+        };
+      }
+      return {
+        sid: process.env.TWILIO_ACCOUNT_SID,
+        token: process.env.TWILIO_AUTH_TOKEN,
+        from: process.env.TWILIO_PHONE_NUMBER
+      };
+    }
+
+    const cfg = getTwilioConfig(fromAccount);
+    if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account: fromAccount });
+    if (!cfg.from) return res.status(500).json({ error: 'twilio_from_number_missing', account: fromAccount });
+
+    const client = Twilio(cfg.sid, cfg.token);
+
+    // Use TwiML: Dial the target. Create a call from the configured 'from' number to itself (executes TwiML)
+    const twiml = `<Response><Dial>${target}</Dial></Response>`;
+
+    const call = await client.calls.create({ from: cfg.from, to: cfg.from, twiml });
+
+    return res.json({ sid: call.sid, status: call.status, account: fromAccount });
+  } catch (e) {
+    console.error('/twilio/bridge error', e);
+    return res.status(500).json({ error: 'bridge_failed', detail: e.message });
   }
 });
 // NOTE: Recording-to-transcribe and Agora token endpoints removed to keep this
