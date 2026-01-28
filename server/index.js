@@ -211,5 +211,28 @@ app.post('/twilio/debug-webhook', express.json(), (req, res) => {
 
   res.sendStatus(204);
 });
+
+// Twilio call status change webhook (configure this URL in the Twilio number "Call status changes")
+app.post('/twilio/status', express.urlencoded({ extended: true }), (req, res) => {
+  try {
+    console.log('Twilio call status webhook:', req.body);
+    // Optionally write to Firestore for auditing
+    try {
+      if (firestore && req.body && req.body.CallSid) {
+        const sid = req.body.CallSid;
+        const docRef = firestore.collection('TwilioCallEvents').doc(sid);
+        const payload = { event: req.body, receivedAt: admin.firestore.FieldValue.serverTimestamp() };
+        docRef.set(payload, { merge: true }).catch(e => console.error('Failed to write Twilio status to Firestore', e));
+      }
+    } catch (e) {
+      console.error('Error storing Twilio status', e);
+    }
+
+    res.sendStatus(204);
+  } catch (e) {
+    console.error('/twilio/status handler error', e);
+    res.sendStatus(500);
+  }
+});
 // NOTE: Recording-to-transcribe and Agora token endpoints removed to keep this
 // server minimal and focused on Twilio Media Streams -> Deepgram -> Firestore.
