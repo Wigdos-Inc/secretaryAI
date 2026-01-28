@@ -1,11 +1,190 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <!-- Individual deals will be displayed based on URL Params -->
-</body>
-</html>
+<div class="lead-detail-page">
+    <!-- Call Header -->
+    <div class="call-header">
+        <div class="call-header-main">
+            <div class="call-icon">
+                <i class="bi bi-telephone-fill"></i>
+            </div>
+            <div class="call-header-info">
+                <h1 class="call-client-name" id="clientName">Michael Rodriguez</h1>
+                <div class="call-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock"></i>
+                        <span id="callDate">January 22, 2026 at 2:45 PM</span>
+                    </span>
+                    <span class="meta-item">
+                        Duration: <span id="callDuration">8 min 32 sec</span>
+                    </span>
+                    <span class="meta-item">
+                        Status: <span id="callStatus">Completed</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="call-grade">
+            <div class="grade-badge grade-a" id="gradeBadge">A</div>
+            <span class="grade-label">Excellent Call</span>
+        </div>
+    </div>
+
+    <!-- Client Information -->
+    <div class="card details-card">
+        <h2 class="card-title">
+            <i class="bi bi-person-badge"></i>
+            Client Information
+        </h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Phone Number</span>
+                <span class="info-value" id="clientPhone">+1 (555) 789-4321</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Email</span>
+                <span class="info-value" id="clientEmail">michael.rodriguez@email.com</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Property Address</span>
+                <span class="info-value" id="propertyAddress">456 Oak Avenue, Los Angeles, CA</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Call Type</span>
+                <span class="info-value" id="callType">Investment Consultation</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Summary -->
+    <div class="card details-card collapsible">
+        <div class="card-header-row clickable" onclick="toggleSection('summary')">
+            <h2 class="card-title">
+                <i class="bi bi-file-text"></i>
+                Call Summary
+            </h2>
+            <i class="bi bi-chevron-down chevron-icon" id="summary-chevron"></i>
+        </div>
+        <div class="card-content expanded" id="summary-content">
+            <p class="summary-text">
+                The AI assistant successfully engaged with Michael Rodriguez regarding investment opportunities in multi-family properties. 
+                The conversation covered his budget range ($500K-$750K), preferred locations (Los Angeles and San Diego areas), 
+                and investment goals (passive income generation).
+            </p>
+            <div class="summary-highlights">
+                <h3>Key Highlights:</h3>
+                <ul>
+                    <li>Client is a first-time multi-family investor</li>
+                    <li>Strong financial position with pre-approved financing</li>
+                    <li>Interested in long-term wealth building through real estate</li>
+                    <li>Preferred properties with 4-8 units</li>
+                    <li>Looking to close within 60-90 days</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis -->
+    <div class="card details-card collapsible">
+        <div class="card-header-row clickable" onclick="toggleSection('analysis')">
+            <h2 class="card-title">
+                <i class="bi bi-bar-chart"></i>
+                AI Analysis
+            </h2>
+            <i class="bi bi-chevron-down chevron-icon" id="analysis-chevron"></i>
+        </div>
+        <div class="card-content expanded" id="analysis-content">
+            <div class="analysis-section">
+                <h3>Sentiment Analysis</h3>
+                <div class="sentiment-bar">
+                    <div class="sentiment-fill positive" style="width: 85%"></div>
+                </div>
+                <p class="sentiment-score">85% Positive</p>
+            </div>
+
+            <div class="analysis-section">
+                <h3>Lead Quality Score</h3>
+                <div class="quality-indicators">
+                    <div class="indicator high">
+                        <span class="indicator-label">Interest Level</span>
+                        <span class="indicator-value">High</span>
+                    </div>
+                    <div class="indicator high">
+                        <span class="indicator-label">Financial Readiness</span>
+                        <span class="indicator-value">High</span>
+                    </div>
+                    <div class="indicator medium">
+                        <span class="indicator-label">Timeline Urgency</span>
+                        <span class="indicator-value">Medium</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h3>AI Performance Metrics</h3>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <span class="metric-label">Conversation Flow</span>
+                        <span class="metric-value">9.2/10</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Response Accuracy</span>
+                        <span class="metric-value">9.5/10</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Client Satisfaction</span>
+                        <span class="metric-value">9.0/10</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Transcript -->
+    <div class="card details-card collapsible">
+        <div class="card-header-row clickable" onclick="toggleSection('transcript')">
+            <h2 class="card-title">
+                <i class="bi bi-chat-left-text"></i>
+                Full Transcript
+            </h2>
+            <i class="bi bi-chevron-down chevron-icon" id="transcript-chevron"></i>
+        </div>
+        <div class="card-content expanded" id="transcript-content">
+            <div class="transcript">
+                <div class="transcript-message ai">
+                    <div class="transcript-avatar">AI</div>
+                    <div class="transcript-content">
+                        <div class="transcript-timestamp">2:45:03 PM</div>
+                        <div class="transcript-text">Good afternoon! This is Sarah from Growth Properties. Am I speaking with Michael Rodriguez?</div>
+                    </div>
+                </div>
+
+                <div class="transcript-message client">
+                    <div class="transcript-avatar">MR</div>
+                    <div class="transcript-content">
+                        <div class="transcript-timestamp">2:45:08 PM</div>
+                        <div class="transcript-text">Yes, this is Michael.</div>
+                    </div>
+                </div>
+
+                <div class="transcript-note">
+                    <em>Transcript continues...</em>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleSection(sectionId) {
+        const content = document.getElementById(sectionId + '-content');
+        const chevron = document.getElementById(sectionId + '-chevron');
+        
+        content.classList.toggle('expanded');
+        chevron.classList.toggle('rotated');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        ['summary', 'analysis', 'transcript'].forEach(sectionId => {
+            const chevron = document.getElementById(sectionId + '-chevron');
+            chevron.classList.add('rotated');
+        });
+    });
+</script>

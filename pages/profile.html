@@ -62,6 +62,24 @@ input:checked + .slider:before {
     position: fixed;
     top: 50%; left: calc(6% + 50%);
     transform: translate(-50%, -50%);
+    z-index: 100;
+}
+
+/* Z-index fix for content - ensures forms stay above background */
+.container {
+    position: relative;
+    z-index: 10;
+}
+
+.container .col {
+    position: relative;
+    z-index: 10;
+    background-color: white;
+}
+
+.shadow {
+    position: relative;
+    z-index: 10;
 }
 </style>
 <body>
@@ -88,7 +106,15 @@ input:checked + .slider:before {
                 <p id="memberSince" class="col text-end m-2 mx-5">January 2024</p>
             </div>
             <hr class="mx-5">
-            <!-- Account type and saved properties removed per request -->
+            <div class="row">
+                <p class="col text-start m-2 mx-5">Account Type</p>
+                <p class="col text-end m-2 mx-5"><span class="badge bg-primary">Premium</span></p>
+            </div>
+            <hr class="mx-5">
+            <div class="row">
+                <p class="col text-start m-2 mx-5">Saved Properties</p>
+                <p id="savedProperties" class="col text-end m-2 mx-5">12 Properties</p>
+            </div>
 
             <div class="mt-5 mb-4">
                 <button id="editProfileBtn" class="button_primary fw-bold btn shadow me-3 p-2 px-4 rounded-3">Edit Profile</button>
@@ -102,14 +128,14 @@ input:checked + .slider:before {
             <div class="row">
                 <p class="col text-start m-2 mx-5">Email Notifications</p>
                 <label class="switch m-2 mx-5">
-                    <input type="checkbox">
+                    <input type="checkbox" checked>
                     <span class="slider"></span>
                 </label>
             </div>
             <div class="row">
                 <p class="col text-start m-2 mx-5">SMS Notifications</p>
                 <label class="switch m-2 mx-5">
-                    <input type="checkbox">
+                    <input type="checkbox" checked>
                     <span class="slider"></span>
                 </label>
             </div>
