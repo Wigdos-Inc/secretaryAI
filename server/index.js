@@ -234,5 +234,43 @@ app.post('/twilio/status', express.urlencoded({ extended: true }), (req, res) =>
     res.sendStatus(500);
   }
 });
+
+// Admin endpoint: fetch recent failed calls using Twilio REST API.
+// Protect with INSPECT_SECRET env or ?secret= query param.
+app.get('/admin/fetch-recent-failed-calls', async (req, res) => {
+  try {
+    const secret = process.env.INSPECT_SECRET;
+    const provided = req.query.secret || req.headers['x-inspect-secret'];
+    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+
+    const TW_SID = process.env.TWILIO_ACCOUNT_SID;
+    const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+    if (!TW_SID || !TW_TOKEN) return res.status(500).json({ error: 'twilio_creds_missing' });
+
+    const tw = Twilio(TW_SID, TW_TOKEN);
+    // fetch recent calls (page) and filter failed or errored ones
+    const pageSize = parseInt(req.query.limit || '50', 10);
+    const calls = await tw.calls.list({ pageSize });
+    const failed = calls.filter(c => (c.status === 'failed' || c.status === 'no-answer' || c.status === 'busy'));
+
+    // For each failed call, fetch events (limited) for diagnostics
+    const results = [];
+    for (const c of failed.slice(0, 30)) {
+      let events = [];
+      try {
+        const ev = await tw.calls(c.sid).events.list({ limit: 20 });
+        events = ev.map(e => ({ sid: e.sid, dateCreated: e.dateCreated, level: e.level, message: e.message, errorCode: e.errorCode }));
+      } catch (e) {
+        // ignore
+      }
+      results.push({ sid: c.sid, status: c.status, from: c.from, to: c.to, startTime: c.startTime, endTime: c.endTime, duration: c.duration, events });
+    }
+
+    return res.json({ fetched: results.length, results });
+  } catch (e) {
+    console.error('admin fetch error', e);
+    return res.status(500).json({ error: 'server_error', detail: e.message });
+  }
+});
 // NOTE: Recording-to-transcribe and Agora token endpoints removed to keep this
 // server minimal and focused on Twilio Media Streams -> Deepgram -> Firestore.
