@@ -32,6 +32,12 @@
     margin-bottom: 20px;
 }
 
+.auth-header .brand .brand-logo {
+    display: block;
+    width: 180px;
+    height: auto;
+}
+
 .auth-header .brand span {
     font-size: 1.5em;
     font-weight: 700;
