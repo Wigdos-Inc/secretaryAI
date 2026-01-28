@@ -27,26 +27,19 @@
     </div>
 
     <!-- Chat Messages Area -->
-    <div class="chat-messages" id="chatBox">
-        <div class="message bot-message">
-            <div class="message-bubble">
-                Hello! I can help with property searches or account details.
-            </div>
-        </div>
-        <div class="message user-message">
-            <div class="message-bubble">
-                Show me new listings.
-            </div>
-        </div>
-    </div>
+    <div class="chat-messages" id="chatBox"></div>
 
     <!-- Floating Message Input -->
     <div class="message-input-container">
         <div class="message-input">
-            <input type="text" placeholder="Type your message..." id="chatInput" />
-            <button class="send-btn" id="sendBtn">
-                <i class="bi bi-send-fill"></i>
-            </button>
+            <form id="promptForm"> <!-- For Easy Funtion Trigger -->
+                <input type="text" placeholder="Type your message..." id="chatInput" />
+                <button class="send-btn" id="sendBtn" type="submit">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </form>
         </div>
     </div>
+
+    <script type="module" src="../scripts/pages/chat.js"></script>
 </div>
