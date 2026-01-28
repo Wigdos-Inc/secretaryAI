@@ -298,7 +298,10 @@ app.post('/twilio/outbound', express.json(), async (req, res) => {
   try {
     const secret = process.env.OUTBOUND_SECRET;
     const provided = req.query.secret || req.headers['x-outbound-secret'];
-    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+    if (!secret || provided !== secret) {
+      console.warn('/twilio/outbound forbidden: outbound secret missing or mismatch; provided?', !!provided);
+      return res.status(403).json({ error: 'forbidden', provided: !!provided });
+    }
 
     const TW_SID = process.env.TWILIO_ACCOUNT_SID;
     const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN;
@@ -330,7 +333,10 @@ app.post('/twilio/bridge', express.json(), async (req, res) => {
   try {
     const secret = process.env.OUTBOUND_SECRET;
     const provided = req.query.secret || req.headers['x-outbound-secret'];
-    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+    if (!secret || provided !== secret) {
+      console.warn('/twilio/bridge forbidden: outbound secret missing or mismatch; provided?', !!provided);
+      return res.status(403).json({ error: 'forbidden', provided: !!provided });
+    }
 
     // allow selecting which account to use to originate the bridge leg (A or B)
     const fromAccount = (req.body && req.body.fromAccount) || req.query.account || 'A';
