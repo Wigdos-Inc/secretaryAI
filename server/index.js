@@ -515,6 +515,59 @@ app.post('/twilio/bridge', async (req, res) => {
     return res.status(500).json({ error: 'bridge_failed', detail: e.message });
   }
 });
+
+// Helper: wait for a CallSid to become in-progress and then update its TwiML to play a TTS URL.
+// Protected by OUTBOUND_SECRET. Body: { callSid, ttsUrl, account: 'A'|'B' (optional), timeoutSeconds (optional) }
+app.post('/twilio/play-when-ready', express.json(), async (req, res) => {
+  try {
+    const secret = process.env.OUTBOUND_SECRET;
+    const provided = req.query.secret || req.headers['x-outbound-secret'];
+    if (!secret || provided !== secret) return res.status(403).json({ error: 'forbidden' });
+
+    const { callSid, ttsUrl, account = 'A', timeoutSeconds = 30 } = req.body || {};
+    if (!callSid || !ttsUrl) return res.status(400).json({ error: 'missing_callSid_or_ttsUrl' });
+
+    function getTwilioConfig(acc) {
+      if (acc === 'B') {
+        return {
+          sid: process.env.TWILIO_ACCOUNT_SID_B,
+          token: process.env.TWILIO_AUTH_TOKEN_B
+        };
+      }
+      return {
+        sid: process.env.TWILIO_ACCOUNT_SID,
+        token: process.env.TWILIO_AUTH_TOKEN
+      };
+    }
+
+    const cfg = getTwilioConfig(account);
+    if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account });
+    const client = Twilio(cfg.sid, cfg.token);
+
+    const deadline = Date.now() + (parseInt(timeoutSeconds, 10) || 30) * 1000;
+    let lastStatus = null;
+    while (Date.now() < deadline) {
+      try {
+        const call = await client.calls(callSid).fetch();
+        lastStatus = call.status;
+        if (call.status === 'in-progress') {
+          const twiml = `<Response><Play>${ttsUrl}</Play></Response>`;
+          await client.calls(callSid).update({ twiml });
+          return res.json({ updated: true, callSid, status: call.status });
+        }
+      } catch (e) {
+        console.error('play-when-ready fetch error', e);
+        return res.status(500).json({ error: 'twilio_fetch_failed', detail: e.message });
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    return res.status(408).json({ error: 'timeout', lastStatus });
+  } catch (e) {
+    console.error('/twilio/play-when-ready error', e);
+    return res.status(500).json({ error: 'server_error', detail: e.message });
+  }
+});
 // JSON parse error handler to surface invalid JSON bodies and log raw body start
 app.use((err, req, res, next) => {
   if (!err) return next();
