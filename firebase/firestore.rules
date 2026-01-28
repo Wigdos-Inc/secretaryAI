@@ -3,25 +3,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Plans: anyone can read plans; only authenticated users may create/update/delete
+    // Plans: anyone can read plans, only admins can create/update/delete
     match /Plans/{planId} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null;
+      allow create, update, delete: if isAdmin();
     }
 
-    // Users: each authenticated user may create and manage their own profile document.
+    // Users: each authenticated user may create their own profile document.
+    // Users may read/update/delete their own document. Admins (users with admin == true)
+    // may read/update/delete any user document.
     match /Users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read, update, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
 
-      // Chats subcollection belongs to the user and follows same owner-only rules
+      // Chats subcollection under each user: owner or admin may read/write
       match /chats/{chatId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow read, update, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
+    }
+
+    // Sellers: authenticated users can create/update/delete their own session document
+    match /Sellers/{session_id} {
+      allow create, update, delete: if request.auth != null && request.auth.uid == session_id;
+      allow read: if request.auth != null && (request.auth.uid == session_id || isAdmin());
+    }
+    
+    match /Meta/{target} {
+      allow read;
     }
 
     // Keep any other collections closed by default (deny)
   }
 
-  // No admin helper — rules are owner-only in this project configuration.
+  // Helper to check admin flag on the requesting user's profile document
+  function isAdmin() {
+    return request.auth != null
+      && get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.admin == true;
+  }
 }
