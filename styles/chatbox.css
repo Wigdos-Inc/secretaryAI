@@ -222,6 +222,10 @@
     color: white;
 }
 
+#promptForm, #chatInput {
+    width: 100%;
+}
+
 .send-btn {
     background: var(--brand-lime);
     border: none;

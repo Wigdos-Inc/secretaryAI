@@ -10,12 +10,19 @@
  */
 
 
-// Import Gemini API
-import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-// Initialize AI (get API Key from n8n to avoid Google nonsense)
-// Yes I know it's smushed into one line beyond recognition. This took hours, I don't care
-const ai = new GoogleGenerativeAI((await (await fetch("https://harveygrowthproperties.app.n8n.cloud/webhook/getApiKey?target=gemini")).json()).apiKey);
+// Get API Key
+import { dbGetDoc } from "./db.js";
+const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
+if (!gemini) throw new Error("Failed to Fetch Gemini Config");
+
+// Import Gemini API (Dynamic Import for URL)
+const { GoogleGenerativeAI } = await import(gemini.url);
+
+const ai = new GoogleGenerativeAI(gemini.key) ?? null;
+if (!ai) throw new Error("Gemini Initialization Failed");
+
+
 
 // API Class
 class Message {
@@ -23,10 +30,10 @@ class Message {
     constructor(history, instructions) {
 
         this.model = ai.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: gemini.model,
             systemInstruction: instructions,
             generationConfig: {
-                temperature: 0.3
+                temperature: 0.6
             }
         });
 
@@ -52,8 +59,8 @@ class Message {
 
 
 // Import/Declare Templates
-const jsonFetch = await fetch('../json/aiTemplates.json');
-const aiTemplates = await jsonFetch.json();
+const jsonFetch = await fetch('/scripts/json/aiTemplates.json');
+export const aiTemplates = await jsonFetch.json();
 
 const emptyChat = {
     history: [],
@@ -74,10 +81,7 @@ export async function prompt(input, chatData = {}) {
     console.log("Received chat prompt.");
 
     // Check if chatData is Valid
-    if (typeof chatData !== 'object' || !chatData) {
-        console.error("Chat Data must be provided as an Object");
-        return;
-    }
+    if (typeof chatData !== 'object' || !chatData) throw new Error("Input ChatData must be an Object");
     
     // Create new Chat if chatData is Empty (happens on fresh chats)
     if (!Object.keys(chatData).length) chatData = { ...emptyChat };
@@ -98,23 +102,26 @@ export async function prompt(input, chatData = {}) {
     const response = await message.send(input);
 
     if (response === null) return "Error, see console for more details.";
+
+    // Sanitize response for storage/display (keep as plain text; UI will render newlines)
+    const responseText = response.replaceAll("*", "");
     
 
     // Add Message and Response to History and Transcript
     chatData.history = chatData.history.concat([
         { role: "user", parts: [{ text: input }] },
-        { role: "model", parts: [{ text: response }] }
+        { role: "model", parts: [{ text: responseText }] }
     ]);
     chatData.messageCount++;
 
     chatData.transcript.push({
         user: input,
-        ai: response
+        ai: responseText
     });
     chatData.totalCount++;
 
     // Return Response and Updated DB Data
-    return { output: response, chatData: chatData }
+    return { text: responseText, data: chatData }
 }
 
 async function summarize(chatData) {
@@ -131,13 +138,13 @@ async function summarize(chatData) {
 
     // Create New Summary
     const message = new Message(toSummarize, instructions);
-    chatData.summary = await message.send("Please summarize our conversation.");
+    chatData.summary = (await message.send("Please summarize our conversation.")).replaceAll("*", "");
 
     return chatData;
 }
 
 
-// Debugging
+/* Debugging
 const userPrompt = window.prompt("What do you want to ask the AI?");
 if (userPrompt)
 {
@@ -148,3 +155,4 @@ else {
     window.alert("You didn't fill in a prompt.");
     location.reload();
 }
+*/

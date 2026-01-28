@@ -75,13 +75,3 @@ export function startAuthListener(callback) {
     }
   });
 }
-
-export default {
-  signIn,
-  register,
-  signOut,
-  sendResetEmail,
-  getProfile,
-  updateProfile,
-  startAuthListener
-};
