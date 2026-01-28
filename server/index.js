@@ -21,6 +21,10 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const cors = require('cors');
@@ -65,6 +69,32 @@ app.use(cors());
 // Log whether OUTBOUND_SECRET is configured (boolean only)
 console.log('OUTBOUND_SECRET set?', !!process.env.OUTBOUND_SECRET);
 
+// In-memory map of generated TTS files (id -> { path, expiresAt })
+const ttsFiles = new Map();
+
+// Serve generated TTS audio files
+app.get('/tts/:id', (req, res) => {
+  const id = req.params.id;
+  const entry = ttsFiles.get(id);
+  if (!entry) return res.status(404).send('Not found');
+  const p = entry.path;
+  if (!fs.existsSync(p)) return res.status(404).send('Not found');
+  res.setHeader('Content-Type', 'audio/wav');
+  const stream = fs.createReadStream(p);
+  stream.pipe(res);
+});
+
+// Periodic cleanup of old TTS files
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, entry] of ttsFiles.entries()) {
+    if (entry.expiresAt < now) {
+      try { fs.unlinkSync(entry.path); } catch (e) {}
+      ttsFiles.delete(id);
+    }
+  }
+}, 60 * 1000);
+
 // TwiML answer endpoint for incoming calls. Configure this URL in Twilio.
 app.post('/twilio/answer', (req, res) => {
   // The Stream url should be a wss endpoint on this server reachable by Twilio
@@ -105,6 +135,62 @@ function createDeepgramSocket() {
     }
   });
   return dg;
+}
+
+// Create a Deepgram agent-capable socket for a session
+function createDeepgramAgentSocket(sessionId) {
+  if (!DG_API_KEY) return null;
+  // request agent-capable realtime connection; query params may vary by DG account
+  const dgUrl = 'wss://api.deepgram.com/v1/listen?encoding=mulaw&sample_rate=8000&agent=true';
+  const dg = new WebSocket(dgUrl, {
+    headers: { Authorization: `Token ${DG_API_KEY}` }
+  });
+  dg.sessionId = sessionId;
+  return dg;
+}
+
+function getTwilioClientForCall(fromNumber, toNumber) {
+  // Prefer account B if its configured phone number matches either side
+  if (process.env.TWILIO_PHONE_NUMBER_B && (fromNumber === process.env.TWILIO_PHONE_NUMBER_B || toNumber === process.env.TWILIO_PHONE_NUMBER_B)) {
+    if (process.env.TWILIO_ACCOUNT_SID_B && process.env.TWILIO_AUTH_TOKEN_B) return Twilio(process.env.TWILIO_ACCOUNT_SID_B, process.env.TWILIO_AUTH_TOKEN_B);
+  }
+  if (process.env.TWILIO_PHONE_NUMBER && (fromNumber === process.env.TWILIO_PHONE_NUMBER || toNumber === process.env.TWILIO_PHONE_NUMBER)) {
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  }
+  // fallback to default account env
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  return null;
+}
+
+async function playAudioIntoCall(session, url) {
+  try {
+    if (!session) return;
+    // queueing: if already playing, push to queue
+    if (!session.playQueue) session.playQueue = [];
+    if (!session.playing) {
+      session.playing = true;
+      const client = getTwilioClientForCall(session.fromNumber, session.toNumber);
+      if (!client) {
+        console.warn('No Twilio client available to play audio into call');
+        session.playing = false;
+        return;
+      }
+      const twiml = `<Response><Play>${url}</Play></Response>`;
+      console.log('Playing audio into call', session.callSid, url);
+      await client.calls(session.callSid).update({ twiml });
+      // done playing, process queue
+      session.playing = false;
+      if (session.playQueue.length > 0) {
+        const next = session.playQueue.shift();
+        playAudioIntoCall(session, next);
+      }
+    } else {
+      session.playQueue.push(url);
+    }
+  } catch (e) {
+    session.playing = false;
+    console.error('Failed to play audio into call', e);
+  }
 }
 
 // When Twilio connects, we'll create a Deepgram socket and forward audio
@@ -150,9 +236,13 @@ wss.on('connection', function connection(twilioWs, req) {
         console.error('Deepgram parse error', e);
       }
     });
+    // Note: agent responses are handled on a separate agent socket
     dg.on('error', (e) => console.error('Deepgram socket error', e));
     dg.on('close', () => console.log('Deepgram socket closed'));
   }
+
+  // Agent socket (for agent-mode responses)
+  let agentDg = null;
 
     twilioWs.on('message', function incoming(message) {
     // Twilio sends JSON text messages describing events
@@ -165,12 +255,53 @@ wss.on('connection', function connection(twilioWs, req) {
         if (dg && dg.readyState === WebSocket.OPEN) {
           const bin = Buffer.from(audioPayload, 'base64');
           dg.send(bin);
+          // also forward to agent socket if available
+          if (agentDg && agentDg.readyState === WebSocket.OPEN) {
+            try { agentDg.send(bin); } catch (e) { console.error('Agent DG send failed', e); }
+          }
         }
       } else if (msg.event === 'start') {
         callSid = msg.start.callSid || null;
         fromNumber = msg.start.from || null;
         toNumber = msg.start.to || null;
         console.log('Media stream started for callSid=', callSid, 'from=', fromNumber, 'to=', toNumber);
+        // create an agent socket for this session
+        try {
+          agentDg = createDeepgramAgentSocket(callSid || `${Date.now()}`);
+          if (agentDg) {
+            agentDg.on('open', () => console.log('Connected to Deepgram (agent)'));
+            agentDg.on('message', async (m) => {
+              try {
+                const data = JSON.parse(m.toString());
+                // Look for agent audio payloads (flexible parsing)
+                let b64 = null;
+                if (data.response && data.response.audio && data.response.audio.data) b64 = data.response.audio.data;
+                else if (data.audio && data.audio.data) b64 = data.audio.data;
+                else if (data.agent && data.agent.audio && data.agent.audio.data) b64 = data.agent.audio.data;
+                if (b64) {
+                  const buf = Buffer.from(b64, 'base64');
+                  const id = crypto.randomUUID();
+                  const filename = `dg-agent-${id}.wav`;
+                  const p = path.join(os.tmpdir(), filename);
+                  fs.writeFileSync(p, buf);
+                  ttsFiles.set(id, { path: p, expiresAt: Date.now() + 1000 * 60 * 10 });
+                  // create session object for play
+                  const session = { callSid, fromNumber, toNumber };
+                  const url = `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers.host}/tts/${id}.wav`.replace('http://', 'https://');
+                  await playAudioIntoCall(session, url);
+                }
+                // If agent also returns text responses, log them
+                if (data.response && data.response.text) console.log('Agent text:', data.response.text);
+              } catch (e) {
+                console.error('Deepgram agent message parse error', e);
+              }
+            });
+            agentDg.on('error', (e) => console.error('Deepgram agent socket error', e));
+            agentDg.on('close', () => console.log('Deepgram agent socket closed'));
+          }
+        } catch (e) {
+          console.error('Failed to create Deepgram agent socket', e);
+        }
       } else if (msg.event === 'stop') {
         console.log('Media stream stopped');
         // build call object and write to Firestore
@@ -189,6 +320,7 @@ wss.on('connection', function connection(twilioWs, req) {
         }
 
         if (dg) dg.close();
+        if (agentDg && agentDg.readyState === WebSocket.OPEN) agentDg.close();
         twilioWs.close();
       }
     } catch (e) {
