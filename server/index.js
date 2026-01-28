@@ -24,6 +24,8 @@ const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const cors = require('cors');
+const Twilio = require('twilio');
+const { createClient: createDeepgramClient } = require('@deepgram/sdk');
 
 const DG_API_KEY = process.env.DG_API_KEY;
 const AGENT_URL = process.env.AGENT_URL || null;
@@ -108,6 +110,8 @@ wss.on('connection', function connection(twilioWs, req) {
   let callSid = null;
   let fromNumber = null;
   let toNumber = null;
+  let transcripts = [];
+  const startedAt = Date.now();
 
   if (!dg) console.error('Deepgram socket not created (DG_API_KEY missing)');
 
@@ -123,27 +127,8 @@ wss.on('connection', function connection(twilioWs, req) {
           const isFinal = data.is_final || false;
           console.log('[Deepgram]', isFinal ? 'FINAL' : 'INTERIM', transcript);
           if (isFinal) {
-            // Write final transcript to Firestore if available
-            try {
-              if (firestore) {
-                // Determine sellerId: prefer the called number (toNumber)
-                const rawSeller = (toNumber || fromNumber || 'unknown').toString();
-                const sellerId = rawSeller.replace(/[^0-9a-zA-Z]/g, '_');
-                const sessionId = callSid || (Date.now()).toString();
-                const docRef = firestore.collection('Sellers').doc(`${sellerId}_sessions`).collection('sessions').doc(sessionId);
-                const payload = {
-                  transcript,
-                  callSid: callSid || null,
-                  from: fromNumber || null,
-                  to: toNumber || null,
-                  recordedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  deepgram: data
-                };
-                docRef.set(payload).catch(e => console.error('Firestore write failed', e));
-              }
-            } catch (e) {
-              console.error('Error writing transcript to Firestore', e);
-            }
+            // accumulate final transcripts
+            transcripts.push({ transcript, ts: Date.now(), deepgram: data });
 
             if (AGENT_URL) {
               // POST transcript to agent URL
@@ -182,6 +167,21 @@ wss.on('connection', function connection(twilioWs, req) {
         console.log('Media stream started for callSid=', callSid, 'from=', fromNumber, 'to=', toNumber);
       } else if (msg.event === 'stop') {
         console.log('Media stream stopped');
+        // build call object and write to Firestore
+        try {
+          const sessionId = callSid || `${Date.now()}`;
+          const callObj = { callSid: callSid || null, from: fromNumber || null, to: toNumber || null, startedAt, endedAt: Date.now(), transcripts };
+          if (firestore) {
+            // Write to Sellers collection as requested: doc id is sessionId, field `call` contains the JSON
+            const docRef = firestore.collection('Sellers').doc(sessionId);
+            docRef.set({ call: callObj, recordedAt: admin.firestore.FieldValue.serverTimestamp() }).catch(e => console.error('Firestore write failed', e));
+          } else {
+            console.log('Final call object (no Firestore):', JSON.stringify(callObj));
+          }
+        } catch (e) {
+          console.error('Error while finalizing call', e);
+        }
+
         if (dg) dg.close();
         twilioWs.close();
       }
@@ -212,111 +212,5 @@ app.post('/twilio/debug-webhook', express.json(), (req, res) => {
 
   res.sendStatus(204);
 });
-
-// Agora token generation endpoint
-app.get('/agora/token', async (req, res) => {
-  const appId = process.env.AGORA_APP_ID;
-  const appCertificate = process.env.AGORA_APP_CERT;
-  if (!appId || !appCertificate) { 
-    return res.status(500).json({ error: 'AGORA_APP_ID or AGORA_APP_CERT not set on server' });
-  }
-
-  const channel = req.query.channel || 'secretary-channel';
-  const uid = parseInt(req.query.uid || '0', 10);
-
-  try {
-    // Try require first (CommonJS). If that fails, try dynamic import() (ESM).
-    let tokenModule = null;
-    try {
-      tokenModule = require('agora-access-token');
-    } catch (e) {
-      try {
-        const imported = await import('agora-access-token');
-        tokenModule = imported && (imported.default || imported);
-      } catch (e2) {
-        // dynamic import failed; tokenModule stays null
-      }
-    }
-
-    if (!tokenModule) {
-      console.error('agora-access-token module not found or failed to load');
-      return res.status(500).json({ error: 'agora_token_module_missing' });
-    }
-
-    // Try multiple supported APIs for token generation
-    let token = null;
-    let logTokenGeneration = null;
-    const lifeSeconds = parseInt(req.query.exp || '3600', 10);
-    const now = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = now + lifeSeconds;
-
-    // 1) RtcTokenBuilder.buildTokenWithUid (common older API)
-    if (tokenModule.RtcTokenBuilder && typeof tokenModule.RtcTokenBuilder.buildTokenWithUid === 'function') {
-      try {
-        const RtcRole = tokenModule.RtcRole || { PUBLISHER: 1 };
-        token = tokenModule.RtcTokenBuilder.buildTokenWithUid(appId, appCertificate, channel, uid, RtcRole.PUBLISHER || RtcRole.PUBLISHER, privilegeExpiredTs);
-        logTokenGeneration = 'RtcTokenBuilder';
-      } catch (e) {
-        console.error('RtcTokenBuilder build failed', e);
-      }
-    }
-
-    // 2) module-level buildTokenWithUid
-    if (!token && typeof tokenModule.buildTokenWithUid === 'function') {
-      try {
-        token = tokenModule.buildTokenWithUid(appId, appCertificate, channel, uid, privilegeExpiredTs);
-        logTokenGeneration = 'module.buildTokenWithUid';
-      } catch (e) {
-        console.error('module.buildTokenWithUid failed', e);
-      }
-    }
-
-    // 3) AccessToken class (handle variants exported by some packages)
-    if (!token && tokenModule.AccessToken) {
-      try {
-        // Common package shape: AccessToken: { Token: <class>, Priviledges: { ... } }
-        const atWrapper = tokenModule.AccessToken;
-        let AccessTokenClass = atWrapper.Token || atWrapper.Token || tokenModule.AccessToken;
-        let Privs = atWrapper.Priviledges || atWrapper.Privileges || tokenModule.priviledges || tokenModule.privileges || null;
-
-        if (typeof AccessTokenClass === 'function') {
-          let at = null;
-          try { at = new AccessTokenClass(appId, appCertificate, channel, uid); } catch (e) {
-            try { at = new AccessTokenClass(appId, appCertificate, channel); } catch (e2) { at = null; }
-          }
-
-          if (at) {
-            try {
-              if (Privs && typeof at.addPriviledge === 'function') {
-                // note: some packages use addPriviledge (misspelling)
-                const joinConst = Privs.kJoinChannel || Privs.JOIN_CHANNEL || Object.values(Privs)[0];
-                if (joinConst) at.addPriviledge(joinConst, privilegeExpiredTs);
-              } else if (Privs && typeof at.addPrivilege === 'function') {
-                const joinConst = Privs.kJoinChannel || Privs.JOIN_CHANNEL || Object.values(Privs)[0];
-                if (joinConst) at.addPrivilege(joinConst, privilegeExpiredTs);
-              }
-            } catch (e) {
-              // ignore
-            }
-
-            if (typeof at.build === 'function') token = at.build();
-            else if (typeof at.toString === 'function') token = at.toString();
-            logTokenGeneration = 'AccessTokenClass';
-          }
-        }
-      } catch (e) {
-        console.error('AccessToken flow failed', e);
-      }
-    }
-
-    if (!token) {
-      console.error('agora-access-token API incompatible', Object.keys(tokenModule));
-      return res.status(500).json({ error: 'agora_token_module_api_mismatch', available: Object.keys(tokenModule) });
-    }
-
-    return res.json({ appId, token, channel, uid, expiresAt: privilegeExpiredTs, generatedBy: logTokenGeneration || 'unknown' });
-  } catch (e) {
-    console.error('Failed to build Agora token', e);
-    return res.status(500).json({ error: 'token_generation_failed', detail: e.message });
-  }
-});
+// NOTE: Recording-to-transcribe and Agora token endpoints removed to keep this
+// server minimal and focused on Twilio Media Streams -> Deepgram -> Firestore.
