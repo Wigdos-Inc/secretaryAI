@@ -14,8 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userMenuName = document.getElementById('userMenuName');
 
     // Use auth listener to drive UI
-    const hash = window.location.hash.substring(1) || 'chatbox';
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    let hash = window.location.hash.substring(1) || 'chatbox';
 
     updateNavigationVisibility();
 
@@ -25,19 +24,28 @@ document.addEventListener('DOMContentLoaded', () => {
         updateNavigationVisibility();
         buildUserDropdown(user, profile);
     });
+
+    function isLoggedIn() {
+
+        return localStorage.getItem('isLoggedIn') === 'true';
+    }
     
-    const protectedPages = ['profile', 'checkout', 'callList'];
+    const protectedPages = ['profile', 'checkout', 'callList', 'leads'];
     const authPages = ['login', 'register'];
     
-    if (!isLoggedIn && protectedPages.includes(hash)) {
+    if (!isLoggedIn() && protectedPages.includes(hash)) {
         window.location.hash = '#login';
         loadPage('login');
         updateActiveNav('login');
-    } else if (isLoggedIn && authPages.includes(hash)) {
+    } else if (isLoggedIn() && authPages.includes(hash)) {
         window.location.hash = '#chatbox';
         loadPage('chatbox');
         updateActiveNav('chatbox');
     } else if (hash) {
+        // If the URL had an old hash, keep the URL updated.
+        if (window.location.hash.substring(1) !== hash) {
+            window.location.hash = '#' + hash;
+        }
         loadPage(hash);
         updateActiveNav(hash);
     } else {
@@ -85,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.addEventListener('click', (e) => {
                         e.preventDefault();
                         const page = item.dataset.page;
-                        loadPage(page);
+                        // Let the hashchange handler load the page (prevents double loads)
                         window.location.hash = '#' + page;
                         userDropdown.classList.remove('show');
                         userMenuTrigger.classList.remove('active');
@@ -114,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.addEventListener('click', (e) => {
                         e.preventDefault();
                         const page = item.dataset.page;
-                        loadPage(page);
+                        // Let the hashchange handler load the page (prevents double loads)
                         window.location.hash = '#' + page;
                         userDropdown.classList.remove('show');
                         userMenuTrigger.classList.remove('active');
@@ -128,24 +136,30 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             const page = item.dataset.page;
-            
-            updateActiveNav(page);
-            loadPage(page);
-            window.location.hash = '#' + page;
+
+            const nextPage = (!isLoggedIn() && protectedPages.includes(page)) ? 'login' : page;
+            // Let the hashchange handler load the page (prevents double loads)
+            window.location.hash = '#' + nextPage;
         });
     });
     
     window.addEventListener('hashchange', () => {
-        const page = window.location.hash.substring(1) || 'chatbox';
-        const currentlyLoggedIn = localStorage.getItem('isLoggedIn');
+        const rawPage = window.location.hash.substring(1) || 'chatbox';
+        const page = rawPage;
+
+        // Rewrite legacy hashes to the canonical one.
+        if (rawPage !== page) {
+            window.location.hash = '#' + page;
+            return;
+        }
         const authPages = ['login', 'register'];
-        const protectedPages = ['profile', 'checkout', 'callList'];
+        const protectedPages = ['profile', 'checkout', 'callList', 'leads'];
         
-        if (!currentlyLoggedIn && protectedPages.includes(page)) {
+        if (!isLoggedIn() && protectedPages.includes(page)) {
             window.location.hash = '#login';
             loadPage('login');
             updateActiveNav('login');
-        } else if (currentlyLoggedIn && authPages.includes(page)) {
+        } else if (isLoggedIn() && authPages.includes(page)) {
             window.location.hash = '#chatbox';
             loadPage('chatbox');
             updateActiveNav('chatbox');
@@ -156,12 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     function updateNavigationVisibility() {
-        const loggedIn = localStorage.getItem('isLoggedIn');
+        const loggedIn = isLoggedIn();
         
         navItems.forEach(item => {
             const page = item.dataset.page;
             
-            if (!loggedIn && (page === 'profile' || page === 'callList')) {
+            if (!loggedIn && (page === 'profile' || page === 'callList' || page === 'leads')) {
                 item.style.display = 'none';
             } else {
                 item.style.display = 'flex';
@@ -194,8 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const loggedIn = localStorage.getItem('isLoggedIn');
-        const protectedPages = ['profile', 'checkout', 'callList'];
+        const loggedIn = isLoggedIn();
+        const protectedPages = ['profile', 'checkout', 'callList', 'leads'];
         const authPages = ['login', 'register'];
         
         if (!loggedIn && protectedPages.includes(page)) {
@@ -225,7 +239,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (srcAttr) {
                         try {
                             // Resolve relative src against the page's URL so paths like "../scripts/..." work
-                            newScript.src = new URL(srcAttr, pageUrl).href;
+                            const resolved = new URL(srcAttr, pageUrl);
+
+                            // IMPORTANT: module scripts are cached/executed once per URL.
+                            // When navigating back to chatbox in the SPA, we need chat.js to run again
+                            // so it can bind to the newly-injected DOM.
+                            if (page === 'chatbox' && resolved.pathname.endsWith('/scripts/pages/chat.js')) {
+                                resolved.searchParams.set('t', Date.now().toString());
+                            }
+
+                            newScript.src = resolved.href;
                         } catch (e) {
                             // Fallback to original attribute
                             newScript.src = srcAttr;
@@ -276,4 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
 window.changeHash = function changeHash(page) {
     const target = (page || '').toString();
     window.location.hash = target.startsWith('#') ? target : '#' + target;
+};
+
+// Used by chat action cards to avoid flashing a protected page.
+window.goToLeads = function goToLeads() {
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    window.changeHash(loggedIn ? 'leads' : 'login');
 };
