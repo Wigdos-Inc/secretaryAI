@@ -58,6 +58,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors());
 
+// Log whether OUTBOUND_SECRET is configured (boolean only)
+console.log('OUTBOUND_SECRET set?', !!process.env.OUTBOUND_SECRET);
+
 // TwiML answer endpoint for incoming calls. Configure this URL in Twilio.
 app.post('/twilio/answer', (req, res) => {
   // The Stream url should be a wss endpoint on this server reachable by Twilio
