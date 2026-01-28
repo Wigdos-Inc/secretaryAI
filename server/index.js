@@ -55,7 +55,11 @@ try {
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({
+  verify: (req, res, buf) => {
+    try { req.rawBody = buf && buf.toString(); } catch (e) { req.rawBody = undefined; }
+  }
+}));
 app.use(cors());
 
 // Log whether OUTBOUND_SECRET is configured (boolean only)
@@ -297,7 +301,7 @@ app.get('/admin/fetch-recent-failed-calls', async (req, res) => {
 // Outbound call trigger (protected)
 // Usage: POST /twilio/outbound with body { to: "+31...", twiml: "<Response>..." }
 // Protect with OUTBOUND_SECRET env or ?secret= query param.
-app.post('/twilio/outbound', express.json(), async (req, res) => {
+app.post('/twilio/outbound', async (req, res) => {
   try {
     const secret = process.env.OUTBOUND_SECRET;
     const provided = req.query.secret || req.headers['x-outbound-secret'];
@@ -332,7 +336,7 @@ app.post('/twilio/outbound', express.json(), async (req, res) => {
 // Bridge two PSTN numbers by originating a call from the configured Twilio account
 // This creates a call from TWILIO_PHONE_NUMBER -> target, and uses TwiML to Dial the target (connects them).
 // Protected by OUTBOUND_SECRET (same as outbound endpoint).
-app.post('/twilio/bridge', express.json(), async (req, res) => {
+app.post('/twilio/bridge', async (req, res) => {
   try {
     const secret = process.env.OUTBOUND_SECRET;
     const provided = req.query.secret || req.headers['x-outbound-secret'];
@@ -378,6 +382,17 @@ app.post('/twilio/bridge', express.json(), async (req, res) => {
     console.error('/twilio/bridge error', e);
     return res.status(500).json({ error: 'bridge_failed', detail: e.message });
   }
+});
+// JSON parse error handler to surface invalid JSON bodies and log raw body start
+app.use((err, req, res, next) => {
+  if (!err) return next();
+  const isBodyParserError = err && ((err instanceof SyntaxError && err.status === 400 && 'body' in err) || err.type === 'entity.parse.failed');
+  if (isBodyParserError) {
+    console.warn('JSON parse error on', req.path, 'Content-Type:', req.headers['content-type']);
+    if (req.rawBody) console.warn('Raw body starts with:', req.rawBody.slice(0, 200));
+    return res.status(400).json({ error: 'invalid_json', detail: 'Could not parse JSON body' });
+  }
+  return next(err);
 });
 // NOTE: Recording-to-transcribe and Agora token endpoints removed to keep this
 // server minimal and focused on Twilio Media Streams -> Deepgram -> Firestore.
