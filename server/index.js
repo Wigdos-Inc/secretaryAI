@@ -25,7 +25,6 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const cors = require('cors');
 const Twilio = require('twilio');
-const { createClient: createDeepgramClient } = require('@deepgram/sdk');
 
 const DG_API_KEY = process.env.DG_API_KEY;
 const AGENT_URL = process.env.AGENT_URL || null;
