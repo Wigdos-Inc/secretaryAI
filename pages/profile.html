@@ -153,11 +153,12 @@ input:checked + .slider:before {
     </div>
 
     <!-- Popup Container -->
-    <div class="container mx-auto" style="max-width: 50%;">
+    <div class="container mx-auto" style="max-width: 60%;">
+        <div id="popup_background" class="vh-100 vw-100 position-fixed top-0 start-0" style="background-color: rgba(146, 146, 146, 0.407); display: none;"></div>
         <!-- Change Personal Account Info Popup -->
-        <div class="shadow rounded-4 p-5 mb-3 popup" style="display: none;">
+        <div id="popup_account_info" class="shadow rounded-4 p-5 mb-3 popup position-fixed" style="display: none;">
             <h2 class="fw-bold mb-3">Update Personal Information</h2>
-            <form method="post" action="">
+            <form id="account_info_form" method="post" action="">
                 <div class="row">
                     <div class="col-3 mb-4">
                         <label class="form-label fw-bold" for="voornaam">First name</label>
@@ -171,17 +172,17 @@ input:checked + .slider:before {
                 </div>
 
                 <div class="col-6 mb-4">
-                    <label class="form-labelfw-bold" for="email">Email</label>
-                    <input class="form-control" type="email" name="email" id="email" value="Joe@Blog.com">
+                    <label class="form-labelfw-bold" for="phoneNum">Phone number</label>
+                    <input class="form-control" type="number" name="phoneNum" id="phoneNum" value="">
                 </div>
 
                 <div class="col-6 mb-4">
-                    <input class="form-control" type="submit" value="Update Information"><br>
+                    <!-- <input class="form-control" type="submit" value="Update Information"><br> -->
                     <input class="form-control" type="reset" value="Reset">
                 </div>
             </form>
 
-            <button class="fw-bold btn shadow p-2 px-4 rounded-3">Done</button>
+            <button id="popup_account_info_done" class="fw-bold btn shadow p-2 px-4 rounded-3">Done</button>
         </div>
 
         <!-- Change Password Popup -->
