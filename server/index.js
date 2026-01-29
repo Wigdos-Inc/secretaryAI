@@ -149,17 +149,58 @@ function createDeepgramAgentSocket(sessionId) {
   return dg;
 }
 
-function getTwilioClientForCall(fromNumber, toNumber) {
-  // Prefer account B if its configured phone number matches either side
-  if (process.env.TWILIO_PHONE_NUMBER_B && (fromNumber === process.env.TWILIO_PHONE_NUMBER_B || toNumber === process.env.TWILIO_PHONE_NUMBER_B)) {
-    if (process.env.TWILIO_ACCOUNT_SID_B && process.env.TWILIO_AUTH_TOKEN_B) return Twilio(process.env.TWILIO_ACCOUNT_SID_B, process.env.TWILIO_AUTH_TOKEN_B);
+// Resolve Twilio configuration for account 'A' or 'B'
+function getTwilioConfig(acc) {
+  if (acc === 'B') {
+    return {
+      sid: process.env.TWILIO_ACCOUNT_SID_B,
+      token: process.env.TWILIO_AUTH_TOKEN_B,
+      from: process.env.TWILIO_PHONE_NUMBER_B
+    };
   }
-  if (process.env.TWILIO_PHONE_NUMBER && (fromNumber === process.env.TWILIO_PHONE_NUMBER || toNumber === process.env.TWILIO_PHONE_NUMBER)) {
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  return {
+    sid: process.env.TWILIO_ACCOUNT_SID,
+    token: process.env.TWILIO_AUTH_TOKEN,
+    from: process.env.TWILIO_PHONE_NUMBER
+  };
+}
+
+// Try to pick the right account based on the phone numbers involved (from/to), prefer explicit matches
+function resolveTwilioConfigForNumbers(fromNumber, toNumber) {
+  const aFrom = process.env.TWILIO_PHONE_NUMBER;
+  const bFrom = process.env.TWILIO_PHONE_NUMBER_B;
+
+  if (bFrom && (fromNumber === bFrom || toNumber === bFrom)) {
+    const cfg = getTwilioConfig('B');
+    if (cfg.sid && cfg.token) return { cfg, account: 'B' };
   }
-  // fallback to default account env
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+  if (aFrom && (fromNumber === aFrom || toNumber === aFrom)) {
+    const cfg = getTwilioConfig('A');
+    if (cfg.sid && cfg.token) return { cfg, account: 'A' };
+  }
+
+  // Fallback: prefer A if available, else B
+  const cfgA = getTwilioConfig('A');
+  if (cfgA.sid && cfgA.token) return { cfg: cfgA, account: 'A' };
+  const cfgB = getTwilioConfig('B');
+  if (cfgB.sid && cfgB.token) return { cfg: cfgB, account: 'B' };
+
   return null;
+}
+
+function createTwilioClientFromConfig(cfg) {
+  if (!cfg || !cfg.sid || !cfg.token) return null;
+  return Twilio(cfg.sid, cfg.token);
+}
+
+// New helper: returns { client, account, from } or null
+function getTwilioClientForCall(fromNumber, toNumber) {
+  const resolved = resolveTwilioConfigForNumbers(fromNumber, toNumber);
+  if (!resolved) return null;
+  const client = createTwilioClientFromConfig(resolved.cfg);
+  if (!client) return null;
+  return { client, account: resolved.account, from: resolved.cfg.from };
 }
 
 async function playAudioIntoCall(session, url) {
@@ -169,15 +210,15 @@ async function playAudioIntoCall(session, url) {
     if (!session.playQueue) session.playQueue = [];
     if (!session.playing) {
       session.playing = true;
-      const client = getTwilioClientForCall(session.fromNumber, session.toNumber);
-      if (!client) {
+      const clientInfo = getTwilioClientForCall(session.fromNumber, session.toNumber);
+      if (!clientInfo || !clientInfo.client) {
         console.warn('No Twilio client available to play audio into call');
         session.playing = false;
         return;
       }
       const twiml = `<Response><Play>${url}</Play></Response>`;
-      console.log('Playing audio into call', session.callSid, url);
-      await client.calls(session.callSid).update({ twiml });
+      console.log('Playing audio into call', session.callSid, url, 'account=', clientInfo.account);
+      await clientInfo.client.calls(session.callSid).update({ twiml });
       // done playing, process queue
       session.playing = false;
       if (session.playQueue.length > 0) {
@@ -387,22 +428,7 @@ app.get('/admin/fetch-recent-failed-calls', async (req, res) => {
     // fetch recent calls (page) and filter failed or errored ones
     const pageSize = parseInt(req.query.limit || '50', 10);
     const calls = await tw.calls.list({ pageSize });
-      // Resolve credentials for requested account
-      function getTwilioConfig(acc) {
-        if (acc === 'B') {
-          return {
-            sid: process.env.TWILIO_ACCOUNT_SID_B,
-            token: process.env.TWILIO_AUTH_TOKEN_B,
-            from: process.env.TWILIO_PHONE_NUMBER_B
-          };
-        }
-        // default A
-        return {
-          sid: process.env.TWILIO_ACCOUNT_SID,
-          token: process.env.TWILIO_AUTH_TOKEN,
-          from: process.env.TWILIO_PHONE_NUMBER
-        };
-      }
+      // use top-level getTwilioConfig(acc)
 
       const cfg = getTwilioConfig(fromAccount);
       if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account: fromAccount });
@@ -442,17 +468,15 @@ app.post('/twilio/outbound', async (req, res) => {
       return res.status(403).json({ error: 'forbidden', provided: !!provided });
     }
 
-    const TW_SID = process.env.TWILIO_ACCOUNT_SID;
-    const TW_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-    const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
-    if (!TW_SID || !TW_TOKEN) return res.status(500).json({ error: 'twilio_creds_missing' });
-    if (!FROM_NUMBER) return res.status(500).json({ error: 'twilio_from_number_missing' });
+    const cfg = getTwilioConfig('A');
+    if (!cfg || !cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing' });
+    if (!cfg.from) return res.status(500).json({ error: 'twilio_from_number_missing' });
 
     const { to, twiml } = req.body || {};
     if (!to) return res.status(400).json({ error: 'missing_to' });
 
-    const client = Twilio(TW_SID, TW_TOKEN);
-    const callParams = { from: FROM_NUMBER, to };
+    const client = Twilio(cfg.sid, cfg.token);
+    const callParams = { from: cfg.from, to };
     if (twiml) callParams.twiml = twiml;
     else callParams.twiml = '<Response><Say voice="alice">This is a test call from Secretary AI.</Say></Response>';
 
@@ -483,20 +507,7 @@ app.post('/twilio/bridge', async (req, res) => {
     const { target } = req.body || {};
     if (!target) return res.status(400).json({ error: 'missing_target' });
 
-    function getTwilioConfig(acc) {
-      if (acc === 'B') {
-        return {
-          sid: process.env.TWILIO_ACCOUNT_SID_B,
-          token: process.env.TWILIO_AUTH_TOKEN_B,
-          from: process.env.TWILIO_PHONE_NUMBER_B
-        };
-      }
-      return {
-        sid: process.env.TWILIO_ACCOUNT_SID,
-        token: process.env.TWILIO_AUTH_TOKEN,
-        from: process.env.TWILIO_PHONE_NUMBER
-      };
-    }
+    // use top-level getTwilioConfig(acc)
 
     const cfg = getTwilioConfig(fromAccount);
     if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account: fromAccount });
@@ -527,19 +538,7 @@ app.post('/twilio/play-when-ready', express.json(), async (req, res) => {
     const { callSid, ttsUrl, account = 'A', timeoutSeconds = 30 } = req.body || {};
     if (!callSid || !ttsUrl) return res.status(400).json({ error: 'missing_callSid_or_ttsUrl' });
 
-    function getTwilioConfig(acc) {
-      if (acc === 'B') {
-        return {
-          sid: process.env.TWILIO_ACCOUNT_SID_B,
-          token: process.env.TWILIO_AUTH_TOKEN_B
-        };
-      }
-      return {
-        sid: process.env.TWILIO_ACCOUNT_SID,
-        token: process.env.TWILIO_AUTH_TOKEN
-      };
-    }
-
+    // use top-level getTwilioConfig(account)
     const cfg = getTwilioConfig(account);
     if (!cfg.sid || !cfg.token) return res.status(500).json({ error: 'twilio_creds_missing_for_account', account });
     const client = Twilio(cfg.sid, cfg.token);
