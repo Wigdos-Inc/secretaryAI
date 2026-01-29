@@ -29,6 +29,21 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == session_id || isAdmin());
     }
     
+    // Calls nested under a seller: only the seller or admins may create/update/delete
+    match /Sellers/{session_id}/calls/{callId} {
+      allow read: if request.auth != null && (request.auth.uid == session_id || isAdmin());
+
+      // On create require authenticated seller and basic shape, disallow client-provided recordingUrl initially
+      allow create: if request.auth != null
+        && request.auth.uid == session_id
+        && request.resource.data.sellerId == session_id
+        && request.resource.data.callId == null
+        && request.resource.data.recordingUrl == null;
+
+      // Allow updates only from the seller or admin. Server-side processes using admin SDK bypass rules.
+      allow update, delete: if request.auth != null && (request.auth.uid == session_id || isAdmin());
+    }
+    
     match /Meta/{target} {
       allow read;
     }

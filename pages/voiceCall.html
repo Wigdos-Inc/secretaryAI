@@ -1,0 +1,47 @@
+<div class="voicecall-page container py-4">
+    <h1 class="fw-bold text-center">Voice Call</h1>
+
+    <div class="call-controls mt-4 mx-auto" style="max-width:720px;">
+        <div class="mb-3 p-3 border rounded bg-light">
+            <strong>Signed in as:</strong>
+            <div id="sellerInfo" class="mt-2">Not signed in. <a href="#login">Login</a></div>
+        </div>
+        <!-- target input removed: calls will be initiated for the current seller/session -->
+
+        <div class="d-flex gap-2 mb-3">
+            <button id="startCall" class="btn btn-primary">Start Call</button>
+            <button id="connectCall" class="btn btn-success" disabled>Mark Connected</button>
+            <button id="endCall" class="btn btn-danger" disabled>End Call</button>
+            <button id="muteToggle" class="btn btn-outline-secondary">Mute</button>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input class="form-check-input" type="checkbox" id="consentCheckbox">
+            <label class="form-check-label" for="consentCheckbox">I have the callee's consent to record this call (required)</label>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Transcript</label>
+            <textarea id="transcript" class="form-control" rows="6" readonly></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Event Log</label>
+            <div id="callLog" class="p-2 border rounded" style="height:160px; overflow:auto; background:#fafafa;"></div>
+        </div>
+    </div>
+
+    <script type="module" src="../scripts/pages/voiceCall.js"></script>
+</div>
+
+<!-- Hidden host and elements expected by voice-agent script so it can auto-init safely -->
+<div id="voiceAgentHost" style="display:none;">
+    <button id="startBtn" style="display:none"></button>
+    <button id="stopBtn" style="display:none"></button>
+    <div id="conversationLog" style="display:none"></div>
+    <div id="deepgramStatus" style="display:none"></div>
+    <div id="deepgramStatusText" style="display:none"></div>
+    <div id="sessionId" style="display:none"></div>
+    <div id="messageCount" style="display:none"></div>
+    <div id="startTime" style="display:none"></div>
+</div>
