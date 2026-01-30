@@ -1,5 +1,35 @@
 import { getProfile, updateProfile, sendResetEmail } from './auth.js';
 
+function formatDDMMYYYY(value) {
+  if (!value) return '—';
+
+  let date;
+
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === 'object') {
+    if (typeof value.toDate === 'function') {
+      date = value.toDate();
+    } else if (typeof value.seconds === 'number') {
+      date = new Date(value.seconds * 1000);
+    }
+  } else if (typeof value === 'number') {
+    date = new Date(value);
+  } else if (typeof value === 'string') {
+    // Handles Firestore Auth creationTime strings like: "Tue, 30 Jan 2024 12:34:56 GMT"
+    // and ISO strings.
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) date = new Date(parsed);
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return '—';
+
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = String(date.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+}
+
 // Populate profile page fields and wire buttons
 export async function initProfilePage() {
   try {
@@ -22,12 +52,7 @@ export async function initProfilePage() {
     if (phoneEl) phoneEl.textContent = profile.phone || profile.phoneNumber || '—';
     if (memberSinceEl) {
       const created = profile.createdAt || profile.memberSince || null;
-      // created may be a Firestore timestamp object; handle common formats
-      let label = '—';
-      if (created && typeof created === 'object' && created.toDate) label = created.toDate().toLocaleDateString();
-      else if (typeof created === 'string') label = created;
-      else if (typeof created === 'number') label = new Date(created).toLocaleDateString();
-      memberSinceEl.textContent = label;
+      memberSinceEl.textContent = formatDDMMYYYY(created);
     }
     // accountType and savedProperties removed
 
