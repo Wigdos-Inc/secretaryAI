@@ -1,0 +1,5 @@
+{
+  "url": "https://generativelanguage.googleapis.com",
+  "key": "your-gemini-api-key-here",
+  "model": "gemini-1.5-flash"
+}

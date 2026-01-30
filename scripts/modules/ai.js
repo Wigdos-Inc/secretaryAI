@@ -36,6 +36,11 @@ if (!gemini) {
 
 if (!gemini) throw new Error("Failed to load Gemini config. Create /scripts/json/aiConfig.json via CI using GitHub secrets or set window.__AI_CONFIG.gemini.");
 
+// Check if config has unexpanded variables (indicates secrets not set or local dev)
+if (gemini.url && gemini.url.includes('${')) {
+    throw new Error("Gemini config contains unexpanded variables. Ensure GitHub secrets are set (GEMINI_URL, GEMINI_KEY, GEMINI_MODEL) and CI has run, or create a local /scripts/json/aiConfig.json with actual values for development.");
+}
+
 // Import Gemini API (Dynamic Import for URL)
 const { GoogleGenerativeAI } = await import(gemini.url);
 
