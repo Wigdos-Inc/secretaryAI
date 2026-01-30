@@ -1,0 +1,5 @@
+{
+  "url": "https://esm.run/@google/generative-ai",
+  "key": "<YOUR_API_KEY>",
+  "model": "gemini-2.5-flash"
+}
