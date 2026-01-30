@@ -9,12 +9,17 @@ service cloud.firestore {
 
     match /Users/{userId} {
       allow create: if isAuthenticated() && request.auth.uid == userId && validUserOnCreate(request.resource.data);
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      // Any authenticated user can read user documents.
+      allow read: if isAuthenticated();
       allow update: if isAuthenticated() && request.auth.uid == userId && validUserOnUpdate(request.resource.data);
       allow delete: if false;
 
       match /chats/{chatId} {
-        allow create, read, update, delete: if isAuthenticated() && request.auth.uid == userId;
+        // Chats are readable by any authenticated user, but only the owner may create/update/delete their own chats.
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.auth.uid == userId;
+        allow update: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
 
