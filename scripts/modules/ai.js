@@ -11,45 +11,10 @@
 
 
 
-// Load Gemini config from a local JSON (populated at build/deploy time via CI using GitHub secrets)
-// or from a runtime global `window.__AI_CONFIG` set by the host. This avoids reading
-// sensitive keys from Firestore each time.
-let gemini = null;
-try {
-    if (typeof window !== 'undefined' && window.__AI_CONFIG && window.__AI_CONFIG.gemini) {
-        gemini = window.__AI_CONFIG.gemini;
-        console.debug('ai.js: using window.__AI_CONFIG.gemini', gemini);
-    }
-} catch (e) {
-    console.debug('ai.js: error checking window.__AI_CONFIG', e);
-}
-
-if (!gemini) {
-    try {
-        console.debug('ai.js: fetching /scripts/json/aiConfig.json');
-        const cfgResp = await fetch('/scripts/json/aiConfig.json', { cache: 'no-store' });
-        console.debug('ai.js: fetch status', cfgResp && cfgResp.status, 'ok', cfgResp && cfgResp.ok);
-        if (cfgResp && cfgResp.ok) {
-            const text = await cfgResp.text();
-            console.debug('ai.js: aiConfig.json text', text.slice(0, 200));
-            try {
-                gemini = JSON.parse(text);
-                console.debug('ai.js: parsed gemini config', { url: gemini.url && (gemini.url.length ? '[present]' : '[empty]'), model: gemini.model && (gemini.model.length ? '[present]' : '[empty]') });
-            } catch (parseErr) {
-                console.error('ai.js: failed to parse aiConfig.json', parseErr);
-            }
-        }
-    } catch (e) {
-        console.debug('ai.js: error fetching aiConfig.json', e);
-    }
-}
-
-if (!gemini) throw new Error("Failed to load Gemini config. Create /scripts/json/aiConfig.json via CI using GitHub secrets or set window.__AI_CONFIG.gemini.");
-
-// Check if config has unexpanded variables (indicates secrets not set or local dev)
-if (gemini.url && gemini.url.includes('${')) {
-    throw new Error("Gemini config contains unexpanded variables. Ensure GitHub secrets are set (GEMINI_URL, GEMINI_KEY, GEMINI_MODEL) and CI has run, or create a local /scripts/json/aiConfig.json with actual values for development.");
-}
+// Get API Key
+import { dbGetDoc } from "./db.js";
+const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
+if (!gemini) throw new Error("Failed to Fetch Gemini Config");
 
 // Import Gemini API (Dynamic Import for URL)
 const { GoogleGenerativeAI } = await import(gemini.url);

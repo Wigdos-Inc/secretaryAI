@@ -201,7 +201,7 @@ async function gatherCallHistory(sessionId) {
 // Expects n8n to return JSON with at least a `summary` field. Saves result
 // back onto the call document as `aiSummary` and `aiAnalysis`.
 async function sendCallHistoryToN8n(sessionId, callId) {
-    const webhookUrl = 'https://harveygrowthproperties.app.n8n.cloud/webhook/deal-synthesis'; // replace with real webhook
+    const webhookUrl = 'https://harveygrowthproperties.app.n8n.cloud/webhook-test/deal-synthesis'; // replace with real webhook
     const calls = await gatherCallHistory(sessionId);
     const payload = { sellerId: sessionId, callId, calls, sentAt: new Date().toISOString() };
     const resp = await fetch(webhookUrl, {

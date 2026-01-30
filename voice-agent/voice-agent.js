@@ -5,7 +5,7 @@ const CONFIG = {
     settings: {
       agent: {
         listen: { provider: { type: "deepgram", model: "flux-general-en" } },
-        speak: { provider: { type: "deepgram", model: "aura-2-andromeda-en" } },
+        speak: { provider: { type: "deepgram", model: "aura-2-hyperion-en" } },
         think: {
           provider: { type: "open_ai", model: "gpt-5.1" },
           prompt: `You are "Secretary AI", a professional telephone assistant calling potential property sellers in the Netherlands for Growth Properties. Language: English. Tone: warm, friendly and businesslike; prefer short sentences but natural pacing.
@@ -45,25 +45,61 @@ const CONFIG = {
   <p><prosody rate="medium" pitch="medium">Could I confirm your full name?</prosody></p>
 </speak>`,
     jsonSchema: `{
-  "name":"string",
-  "phone":"string",
-  "email":"string",
-  "address":"string",
-  "postcode":"string",
-  "propertyType":"house|apartment|other",
-  "rooms":"number",
-  "areaM2":"number",
-  "askingPriceEUR":"number|null",
-  "motivation":"string",
-  "timeline":"string",
-  "mortgageRemainingEUR":"number|null",
-  "tenants":"boolean",
-  "accessForViewing":"boolean",
-  "knownIssues":"string",
-  "transcript":"string",
-  "summary":"string",
-  "leadQuality":"0-100",
-  "recommendedNext":"string"
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "highlights": { "type": "array", "items": { "type": "string" } },
+    "sentiment": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "quality": { "type": "string", "enum": ["A", "B", "C"] },
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "timeline": {
+      "type": "object",
+      "properties": {
+        "firstCall": { "type": "string", "nullable": true },
+        "lastCall": { "type": "string", "nullable": true },
+        "totalCalls": { "type": "integer" }
+      }
+    },
+    "recommendedNextActions": { "type": "array", "items": { "type": "string" } },
+    "sourceCalls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "callId": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "nullable": true },
+          "excerpt": { "type": "string", "nullable": true }
+        }
+      }
+    },
+    "extractedFacts": { "type": "object" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "followUp": {
+      "type": "object",
+      "properties": {
+        "method": { "type": "string", "nullable": true },
+        "delay_days": { "type": "integer", "nullable": true }
+      }
+    },
+    "raw": { "type": "object", "nullable": true },
+    "errors": { "type": "string", "nullable": true }
+  },
+  "required": [
+    "summary",
+    "highlights",
+    "sentiment",
+    "quality",
+    "score",
+    "timeline",
+    "recommendedNextActions",
+    "sourceCalls",
+    "extractedFacts",
+    "tags",
+    "followUp",
+    "raw",
+    "errors"
+  ]
 }`,
   },
 };
