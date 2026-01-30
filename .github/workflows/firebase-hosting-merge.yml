@@ -20,7 +20,7 @@ jobs:
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
         run: |
           mkdir -p scripts/json
-          cat > scripts/json/aiConfig.json <<'EOF'
+          cat > scripts/json/aiConfig.json <<"EOF"
           {
             "url": "${GEMINI_URL}",
             "key": "${GEMINI_KEY}",
