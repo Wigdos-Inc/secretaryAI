@@ -13,7 +13,7 @@
 
 // Get API Key
 import { dbGetDoc } from "./db.js";
-const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
+//const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
 if (!gemini) throw new Error("Failed to Fetch Gemini Config");
 
 // Import Gemini API (Dynamic Import for URL)
@@ -84,7 +84,10 @@ export async function prompt(input, chatData = {}) {
     if (typeof chatData !== 'object' || !chatData) throw new Error("Input ChatData must be an Object");
     
     // Create new Chat if chatData is Empty (happens on fresh chats)
-    if (!Object.keys(chatData).length) chatData = { ...emptyChat };
+    if (!Object.keys(chatData).length) {
+        chatData = { ...emptyChat };
+        chatData.title = input;
+    }
 
 
     // Check to Summarize Chat History

@@ -21,10 +21,24 @@
             </div>
         </div>
         <nav class="sidebar-nav">
-            <a href="#chatbox" class="nav-item active" data-page="chatbox">
-                <i class="bi bi-chat-dots-fill"></i>
-                <span>ChatBot</span>
-            </a>
+            <div class="nav-group chatbot-group" data-page-group="chatbox">
+                <div class="nav-group-header">
+                    <a href="#chatbox" class="nav-item active" data-page="chatbox" id="chatbotNav">
+                        <i class="bi bi-chat-dots-fill"></i>
+                        <span>ChatBot</span>
+                        <button class="nav-expander" type="button" id="chatbotExpander" aria-label="Expand chat history" aria-expanded="false" hidden>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </a>
+                </div>
+                <div class="nav-submenu" id="chatbotPinned" aria-label="Current chat" hidden></div>
+                <div class="nav-submenu" id="chatbotSubmenu" aria-label="Recent chats" hidden>
+                    <div class="nav-submenu-items" id="chatbotRecent"></div>
+                    <button class="nav-submenu-more" type="button" id="chatbotLoadMore" hidden>
+                        Load more
+                    </button>
+                </div>
+            </div>
             <a href="#voiceCall" class="nav-item" data-page="voiceCall">
                 <i class="bi bi-telephone-forward-fill"></i>
                 <span>Voice Call</span>
