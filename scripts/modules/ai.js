@@ -18,19 +18,29 @@ let gemini = null;
 try {
     if (typeof window !== 'undefined' && window.__AI_CONFIG && window.__AI_CONFIG.gemini) {
         gemini = window.__AI_CONFIG.gemini;
+        console.debug('ai.js: using window.__AI_CONFIG.gemini', gemini);
     }
 } catch (e) {
-    // ignore
+    console.debug('ai.js: error checking window.__AI_CONFIG', e);
 }
 
 if (!gemini) {
     try {
-        const cfgResp = await fetch('/scripts/json/aiConfig.json');
+        console.debug('ai.js: fetching /scripts/json/aiConfig.json');
+        const cfgResp = await fetch('/scripts/json/aiConfig.json', { cache: 'no-store' });
+        console.debug('ai.js: fetch status', cfgResp && cfgResp.status, 'ok', cfgResp && cfgResp.ok);
         if (cfgResp && cfgResp.ok) {
-            gemini = await cfgResp.json();
+            const text = await cfgResp.text();
+            console.debug('ai.js: aiConfig.json text', text.slice(0, 200));
+            try {
+                gemini = JSON.parse(text);
+                console.debug('ai.js: parsed gemini config', { url: gemini.url && (gemini.url.length ? '[present]' : '[empty]'), model: gemini.model && (gemini.model.length ? '[present]' : '[empty]') });
+            } catch (parseErr) {
+                console.error('ai.js: failed to parse aiConfig.json', parseErr);
+            }
         }
     } catch (e) {
-        // ignore
+        console.debug('ai.js: error fetching aiConfig.json', e);
     }
 }
 
