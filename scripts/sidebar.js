@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return localStorage.getItem('isLoggedIn') === 'true';
     }
     
-    const protectedPages = ['profile', 'checkout', 'callList', 'leads'];
+    const protectedPages = ['profile', 'checkout', 'callList', 'leads', 'voiceCall'];
     const authPages = ['login', 'register'];
     
     if (!isLoggedIn() && protectedPages.includes(hash)) {
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const authPages = ['login', 'register'];
-        const protectedPages = ['profile', 'checkout', 'callList', 'leads'];
+        const protectedPages = ['profile', 'checkout', 'callList', 'leads', 'voiceCall'];
         
         if (!isLoggedIn() && protectedPages.includes(page)) {
             window.location.hash = '#login';
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems.forEach(item => {
             const page = item.dataset.page;
             
-            if (!loggedIn && (page === 'profile' || page === 'callList' || page === 'leads')) {
+            if (!loggedIn && (page === 'profile' || page === 'callList' || page === 'leads' || page === 'voiceCall')) {
                 item.style.display = 'none';
             } else {
                 item.style.display = 'flex';

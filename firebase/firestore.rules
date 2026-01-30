@@ -43,6 +43,19 @@ service cloud.firestore {
       // Allow updates only from the seller or admin. Server-side processes using admin SDK bypass rules.
       allow update, delete: if request.auth != null && (request.auth.uid == session_id || isAdmin());
     }
+
+    // Top-level denormalized calls collection for global listing and reporting
+    match /calls/{callId} {
+      // Allow create only when the authenticated user is the seller referenced in the doc
+      allow create: if request.auth != null
+        && request.resource.data.sellerId == request.auth.uid;
+
+      // Allow read to the owning seller or admins
+      allow read: if request.auth != null && (resource.data.sellerId == request.auth.uid || isAdmin());
+
+      // Allow updates/deletes only to admins (server-side processes should use Admin SDK)
+      allow update, delete: if request.auth != null && isAdmin();
+    }
     
     match /Meta/{target} {
       allow read;

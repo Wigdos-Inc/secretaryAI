@@ -20,6 +20,16 @@ jobs:
           else
             echo "No build script, skipping build"
           fi
+      - name: Deploy Firestore rules
+        env:
+          # firebase service account JSON is stored in this secret
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HARVEY_AI_CONSULTING }}
+        run: |
+          echo "Writing service account to disk"
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $RUNNER_TEMP/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json
+          echo "Deploying Firestore rules"
+          npx firebase-tools deploy --only firestore:rules --project harvey-ai-consulting
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

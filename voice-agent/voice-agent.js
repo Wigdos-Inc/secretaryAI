@@ -10,17 +10,16 @@ const CONFIG = {
           provider: { type: "open_ai", model: "gpt-5.1" },
           prompt: `You are "Secretary AI", a professional telephone assistant calling potential property sellers in the Netherlands for Growth Properties. Language: English. Tone: warm, friendly and businesslike; prefer short sentences but natural pacing.
 
-      Primary goals:
-      - At start: explicitly request consent to record.
-      - Collect structured lead and property fields: name, phone, email, address, postcode, property_type, rooms, area_m2, desired_price_EUR, motivation_to_sell, desired_timeline, tenants_present, mortgage_remaining_EUR, known_issues, availability_for_viewing, best_contact_time.
+          Primary goals:
+          - Collect structured lead and property fields: name, phone, email, address, postcode, property_type, rooms, area_m2, desired_price_EUR, motivation_to_sell, desired_timeline, tenants_present, mortgage_remaining_EUR, known_issues, availability_for_viewing, best_contact_time.
 
-      Behavior & outputs:
-      - Ask up to 6 focused questions unless more are required to collect crucial data.
-      - End with a short summary (max 3 bullets) and request confirmation.
-      - Produce two outputs at the end of the call: (1) a JSON object containing all collected fields plus summary, leadQuality (0-100), and recommendedNext, and (2) an ssml string suitable for high-quality neural TTS. The ssml output should include natural prosody, brief breaths or short pauses where appropriate (e.g. small <break time="120ms"/>), and avoid overly long sentences.
+          Behavior & outputs:
+          - Ask up to 6 focused questions unless more are required to collect crucial data.
+          - End with a short summary (max 3 bullets) and request confirmation.
+          - Produce two outputs at the end of the call: (1) a JSON object containing all collected fields plus summary, leadQuality (0-100), and recommendedNext, and (2) an ssml string suitable for high-quality neural TTS. The ssml output should include natural prosody, brief breaths or short pauses where appropriate (e.g. small <break time="120ms"/>), and avoid overly long sentences.
 
-      TTS guidance (for the ssml field): Use SSML tags (<speak>, <break>, <prosody>, <emphasis>) to create natural intonation. Insert small, optional breaths or hesitations sparingly (e.g. <break time="80ms"/>), keep speaking rate moderate, and prefer a slightly warmer timbre. Do not attempt to give legal or tax advice — refer those to a human agent.
-      `,
+          TTS guidance (for the ssml field): Use SSML tags (<speak>, <break>, <prosody>, <emphasis>) to create natural intonation. Insert small, optional breaths or hesitations sparingly (e.g. <break time="80ms"/>), keep speaking rate moderate, and prefer a slightly warmer timbre. Do not attempt to give legal or tax advice — refer those to a human agent.
+          `,
         },
       },
     },
@@ -37,7 +36,7 @@ const CONFIG = {
     leadTime: 0.03,
   },
   prompts: {
-    secretarySystemPrompt: `You are "Secretary AI", a warm, professional telephone assistant for Growth Properties. Language: English. Tone: warm, friendly and businesslike. Collect structured lead/property data, ask for recording consent, finish with a short summary and a recommended next step. At call end return both: (1) JSON with fields + summary + leadQuality (0-100) + recommendedNext, and (2) an SSML string for high-quality TTS with natural prosody and short pauses.`,
+    secretarySystemPrompt: `You are "Secretary AI", a warm, professional telephone assistant for Growth Properties. Language: English. Tone: warm, friendly and businesslike. Collect structured lead/property data, finish with a short summary and a recommended next step. At call end return both: (1) JSON with fields + summary + leadQuality (0-100) + recommendedNext, and (2) an SSML string for high-quality TTS with natural prosody and short pauses.`,
     summaryPrompt: `Input: full call transcript. Output: JSON {summary:[max 3 short bullets], keyFacts:{...}, questionsNeeded:[...], leadQuality:0-100, recommendedNext:string}. Be factual and concise.`,
     dealAnalysisPrompt: `Input: lead-data JSON and transcript summary. Output: JSON {dealScore:0-100, riskFlags:[...], repairEstimateEUR:number|'unknown', suggestedOfferRange:[min,max], rationale:string}. If crucial data is missing, set 'needs_info' and list required fields.`,
     investorPrompt: `You are an investment assistant. For anonymous visitors: brief and informative. For logged-in users: provide detailed analyses, access to saved deals, and search/filter functionality. Cite sources and assumptions for financial estimates.`,
@@ -670,8 +669,16 @@ class VoiceAgentApp2 {
     this.startTime = null;
     this.messageCount = 0;
     this.keepAlive = null;
+    this.muted = false;
 
     this.init();
+    // expose a convenience alias so callers that reference `voiceAgent2.client.setMuted`
+    // will work even though the logic lives on the app object.
+    try {
+      this.client.setMuted = (v) => this.setMuted(v);
+    } catch (e) {
+      console.warn('[VA2] Could not attach client.setMuted alias', e);
+    }
   }
 
   init() {
@@ -753,7 +760,11 @@ class VoiceAgentApp2 {
       await this.client.connect();
 
       await this.recorder.start((audioBuffer) => {
-        this.client.sendAudio(audioBuffer);
+        try {
+          if (!this.muted) this.client.sendAudio(audioBuffer);
+        } catch (e) {
+          console.warn('[VA2] Error in recorder callback:', e);
+        }
       });
 
       this.keepAlive = setInterval(() => this.client.sendKeepAlive(), 5000);
@@ -781,6 +792,17 @@ class VoiceAgentApp2 {
     } catch (err) {
       console.error("[VA2] Stop error", err);
     }
+  }
+
+  // Mute/unmute sending microphone audio to the agent
+  setMuted(v) {
+    this.muted = !!v;
+    console.log('[VA2] setMuted ->', this.muted);
+    return this.muted;
+  }
+
+  isMuted() {
+    return !!this.muted;
   }
 
   handleError(err) {

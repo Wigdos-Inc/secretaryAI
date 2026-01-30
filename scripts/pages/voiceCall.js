@@ -3,12 +3,11 @@ import { serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.23.0/fireb
 import { auth } from '../modules/firebaseInit.js';
 
 // Simple voice-call UI wiring and Firestore lifecycle writes
-const startBtn = document.getElementById('startCall');
-const connectBtn = document.getElementById('connectCall');
-const endBtn = document.getElementById('endCall');
-const muteBtn = document.getElementById('muteToggle');
-const transcriptEl = document.getElementById('transcript');
-const logEl = document.getElementById('callLog');
+let startBtn;
+let endBtn;
+let muteBtn;
+let transcriptEl;
+let logEl;
 
 let currentCall = null; // { id, localStartTs }
 let muted = false;
@@ -17,8 +16,12 @@ function log(msg) {
     const time = new Date().toLocaleTimeString();
     const line = document.createElement('div');
     line.textContent = `[${time}] ${msg}`;
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
+    if (logEl) {
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+    } else {
+        console.debug(line.textContent);
+    }
 }
 
 function getSessionId() {
@@ -49,6 +52,7 @@ function getUserSnapshot() {
 function populateSellerInfo() {
     const infoEl = document.getElementById('sellerInfo');
     const ud = JSON.parse(localStorage.getItem('userData') || 'null');
+    if (!infoEl) return;
     if (!ud) {
         infoEl.innerHTML = 'Not signed in. <a href="#login">Login</a>';
         return;
@@ -90,6 +94,14 @@ async function createCallRecord(target, consent) {
         await dbSetDoc([COLLECTIONS.SELLERS, sessionId, 'calls', docRef.id], { callId: docRef.id }, { merge: true });
     } catch (e) {
         console.warn('Failed to set callId field:', e);
+    }
+
+    // Also create/keep a denormalized top-level `calls/{callId}` document
+    try {
+        const topLevelPayload = Object.assign({}, payload, { callId: docRef.id, sellerId: sessionId });
+        await dbSetDoc(['calls', docRef.id], topLevelPayload, { merge: true });
+    } catch (e) {
+        console.warn('Failed to write top-level calls doc:', e);
     }
 
     return { id: docRef.id, sessionId };
@@ -165,120 +177,136 @@ async function updateCallStatus(call, updates) {
     await dbSetDoc([COLLECTIONS.SELLERS, call.sessionId, 'calls', call.id], { ...updates, updatedAt: serverTimestamp() }, { merge: true });
 }
 
-startBtn?.addEventListener('click', async () => {
-    try {
-        const target = null; // target input removed; calls use seller/session context
-        log('Loading voice-agent (if needed)...');
+function bindControls() {
+    startBtn = document.getElementById('startCall');
+    endBtn = document.getElementById('endCall');
+    muteBtn = document.getElementById('muteToggle');
+    transcriptEl = document.getElementById('transcript');
+    logEl = document.getElementById('callLog');
+    // Ensure initial button states
+    if (startBtn) startBtn.disabled = false;
+    if (endBtn) endBtn.disabled = true;
+
+    // Start call
+    startBtn?.addEventListener('click', async () => {
         try {
-            await loadVoiceAgentScript();
-            log('Voice agent loaded');
-        } catch (e) {
-            log('Voice agent script failed to load: ' + (e.message || e));
-        }
-
-        // ensure user is signed in and consent given
-        const sessionId = getSessionId();
-        if (!sessionId) {
-            log('No authenticated user found — redirecting to login');
-            window.location.hash = '#login';
-            return;
-        }
-
-        const consentCheckbox = document.getElementById('consentCheckbox');
-        if (!consentCheckbox || !consentCheckbox.checked) {
-            log('Consent required before starting.');
-            alert('Please confirm you have the callee\'s consent to record this call.');
-            return;
-        }
-
-        log('Requesting microphone permission...');
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        log('Microphone access granted. Creating call record...');
-
-        const consentObj = { given: true, at: serverTimestamp(), text: 'Callee consent confirmed by user before recording.' };
-        const call = await createCallRecord(null, consentObj);
-        currentCall = { ...call, localStartTs: Date.now() };
-        log(`Call record created: ${currentCall.id}`);
-
-        // If the voiceAgent is present, start it and wire transcript forwarding
-        if (window.voiceAgent2 && window.voiceAgent2.client) {
+            const target = null; // target input removed; calls use seller/session context
+            log('Loading voice-agent (if needed)...');
             try {
-                // start the agent if it's not already started
-                if (typeof window.voiceAgent2.start === 'function') {
-                    window.voiceAgent2.start();
+                await loadVoiceAgentScript();
+                log('Voice agent loaded');
+            } catch (e) {
+                log('Voice agent script failed to load: ' + (e.message || e));
+            }
+
+            // ensure user is signed in and consent given
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                log('No authenticated user found — redirecting to login');
+                window.location.hash = '#login';
+                return;
+            }
+
+            const consentCheckbox = document.getElementById('consentCheckbox');
+            if (!consentCheckbox || !consentCheckbox.checked) {
+                log('Consent required before starting.');
+                alert('Please confirm you have the callee\'s consent to record this call.');
+                return;
+            }
+
+            log('Requesting microphone permission...');
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            log('Microphone access granted. Creating call record...');
+
+            const consentObj = { given: true, at: serverTimestamp(), text: 'Callee consent confirmed by user before recording.' };
+            const call = await createCallRecord(null, consentObj);
+            currentCall = { ...call, localStartTs: Date.now() };
+            log(`Call record created: ${currentCall.id}`);
+
+            // If the voiceAgent is present, start it and wire transcript forwarding
+            if (window.voiceAgent2 && window.voiceAgent2.client) {
+                try {
+                    if (typeof window.voiceAgent2.start === 'function') {
+                        window.voiceAgent2.start();
+                    }
+                } catch (e) {
+                    console.warn('Failed to start voiceAgent2:', e);
+                }
+
+                window.voiceAgent2.client.onUserSpeech((t) => {
+                    const text = `User: ${t}`;
+                    window.voiceCallAppendTranscript(text);
+                    log('User speech: ' + (t || '(empty)'));
+                });
+                window.voiceAgent2.client.onAgentSpeech((t) => {
+                    const text = `AI: ${t}`;
+                    window.voiceCallAppendTranscript(text);
+                    log('Agent speech: ' + (t || '(empty)'));
+                });
+
+                const agentSession = window.voiceAgent2.sessionId || null;
+                if (agentSession) {
+                    updateCallStatus(currentCall, { 'meta.voiceAgentSessionId': agentSession }).catch(() => {});
+                }
+            }
+
+            if (startBtn) startBtn.disabled = true;
+            if (endBtn) endBtn.disabled = false;
+        } catch (e) {
+            console.error(e);
+            log('Failed to start call: ' + (e.message || e));
+        }
+    });
+
+    // End call
+    endBtn?.addEventListener('click', async () => {
+        if (!currentCall) return log('No active call to end');
+        try {
+            const endTs = Date.now();
+            const duration = currentCall.localStartTs ? Math.max(0, Math.floor((endTs - currentCall.localStartTs) / 1000)) : null;
+            const transcript = transcriptEl && transcriptEl.value && transcriptEl.value.trim() ? transcriptEl.value.trim() : null;
+            await updateCallStatus(currentCall, { status: 'ended', endTime: serverTimestamp(), duration, transcript });
+            log(`Call ended (duration ${duration ?? 'unknown'}s)`);
+            // Ensure the voice agent is stopped and muted so it no longer listens or speaks
+            try {
+                if (window.voiceAgent2 && typeof window.voiceAgent2.setMuted === 'function') {
+                    window.voiceAgent2.setMuted(true);
+                }
+                if (window.voiceAgent2 && typeof window.voiceAgent2.stop === 'function') {
+                    await window.voiceAgent2.stop();
                 }
             } catch (e) {
-                console.warn('Failed to start voiceAgent2:', e);
+                console.warn('Error stopping voice agent on call end:', e);
             }
-
-            // forward agent/user speech into transcript area and keep Firestore meta updated
-            window.voiceAgent2.client.onUserSpeech((t) => {
-                const text = `User: ${t}`;
-                window.voiceCallAppendTranscript(text);
-                log('User speech: ' + (t || '(empty)'));
-            });
-            window.voiceAgent2.client.onAgentSpeech((t) => {
-                const text = `AI: ${t}`;
-                window.voiceCallAppendTranscript(text);
-                log('Agent speech: ' + (t || '(empty)'));
-            });
-
-            // annotate call doc with voiceAgent session id if available
-            const agentSession = window.voiceAgent2.sessionId || null;
-            if (agentSession) {
-                updateCallStatus(currentCall, { 'meta.voiceAgentSessionId': agentSession }).catch(() => {});
-            }
+            if (startBtn) startBtn.disabled = false;
+            if (endBtn) endBtn.disabled = true;
+            currentCall = null;
+        } catch (e) {
+            console.error(e);
+            log('Failed to end call: ' + (e.message || e));
         }
+    });
 
-        startBtn.disabled = true;
-        connectBtn.disabled = false;
-        endBtn.disabled = false;
-    } catch (e) {
-        console.error(e);
-        log('Failed to start call: ' + (e.message || e));
-    }
-});
-
-connectBtn?.addEventListener('click', async () => {
-    if (!currentCall) return log('No active call to connect');
-    try {
-        await updateCallStatus(currentCall, { status: 'connected', startTime: serverTimestamp() });
-        currentCall.localStartTs = Date.now();
-        log('Call marked connected');
-    } catch (e) {
-        console.error(e);
-        log('Failed to mark connected: ' + (e.message || e));
-    }
-});
-
-endBtn?.addEventListener('click', async () => {
-    if (!currentCall) return log('No active call to end');
-    try {
-        const endTs = Date.now();
-        const duration = currentCall.localStartTs ? Math.max(0, Math.floor((endTs - currentCall.localStartTs) / 1000)) : null;
-        // Push transcript (if any) and finalize
-        const transcript = transcriptEl.value && transcriptEl.value.trim() ? transcriptEl.value.trim() : null;
-        await updateCallStatus(currentCall, { status: 'ended', endTime: serverTimestamp(), duration, transcript });
-        log(`Call ended (duration ${duration ?? 'unknown'}s)`);
-        startBtn.disabled = false;
-        connectBtn.disabled = true;
-        endBtn.disabled = true;
-        currentCall = null;
-    } catch (e) {
-        console.error(e);
-        log('Failed to end call: ' + (e.message || e));
-    }
-});
-
-muteBtn?.addEventListener('click', () => {
-    muted = !muted;
-    muteBtn.textContent = muted ? 'Unmute' : 'Mute';
-    log(muted ? 'Muted' : 'Unmuted');
-});
+    // Mute toggle
+    muteBtn?.addEventListener('click', () => {
+        muted = !muted;
+        if (muteBtn) muteBtn.textContent = muted ? 'Unmute' : 'Mute';
+        log(muted ? 'Muted' : 'Unmuted');
+        try {
+            if (window.voiceAgent2 && window.voiceAgent2.client && typeof window.voiceAgent2.client.setMuted === 'function') {
+                window.voiceAgent2.client.setMuted(muted);
+            }
+        } catch (e) {
+            console.debug('voiceAgent mute toggle not supported', e);
+        }
+    });
+}
 
 // Expose a tiny API for appending to the transcript from other modules (e.g., voice-agent)
 window.voiceCallAppendTranscript = function (text) {
     if (!text) return;
+    if (!transcriptEl) transcriptEl = document.getElementById('transcript');
+    if (!transcriptEl) return;
     transcriptEl.value = (transcriptEl.value ? transcriptEl.value + '\n' : '') + text;
 };
 
@@ -296,9 +324,14 @@ window.voiceCallSetRecordingUrl = async function (callId, url) {
 
 log('Voice call module loaded');
 
-// Populate seller info on load
+// Populate seller info and bind UI after the fragment is injected
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', populateSellerInfo);
+    document.addEventListener('DOMContentLoaded', () => {
+        populateSellerInfo();
+        bindControls();
+    });
 } else {
     populateSellerInfo();
+    // run binding on next tick to ensure the page fragment is inserted
+    setTimeout(bindControls, 0);
 }
