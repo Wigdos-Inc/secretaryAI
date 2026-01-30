@@ -10,11 +10,22 @@
 <body>
     <div class="call-list-container">
         <h1 class="call-list-title">Call History</h1>
+        <div id="callListToolbar" class="d-flex gap-2 align-items-center mb-3" style="display:none;">
+            <button id="backToGroups" class="btn btn-sm btn-outline-secondary">Back</button>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+                <label class="small mb-0">Sort:</label>
+                <button id="sortToggle" class="btn btn-sm btn-outline-primary">Newest</button>
+                <button id="loadMore" class="btn btn-sm btn-primary">Load more</button>
+            </div>
+        </div>
         <div id="callListContent" class="call-list-content">
             <!-- Call cards will be dynamically inserted here -->
         </div>
         <div id="emptyState" class="empty-state" style="display: none;">
             <p>No calls yet. Start making calls to see your history here.</p>
+        </div>
+        <div id="debugLog" class="debug-log p-2 mt-3 border rounded" style="font-family: monospace; font-size:12px; height:200px; overflow:auto; background:#0f172a; color:#e6eef8; display:block;">
+            <div style="opacity:.7; font-size:11px;">Debug log (most recent at bottom):</div>
         </div>
     </div>
 

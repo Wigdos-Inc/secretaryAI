@@ -13,6 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Write AI config from secrets
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          GEMINI_URL: ${{ secrets.GEMINI_URL }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+        run: |
+          mkdir -p scripts/json
+          cat > scripts/json/aiConfig.json <<'EOF'
+          {
+            "url": "${GEMINI_URL}",
+            "key": "${GEMINI_KEY}",
+            "model": "${GEMINI_MODEL}"
+          }
+          EOF
       - run: |
           npm ci
           if node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts.build ? 0 : 1)"; then

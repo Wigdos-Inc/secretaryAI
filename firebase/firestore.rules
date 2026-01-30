@@ -2,71 +2,91 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Plans: anyone can read plans, only admins can create/update/delete
     match /Plans/{planId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if false;
     }
 
-    // Users: each authenticated user may create their own profile document.
-    // Users may read/update/delete their own document. Admins (users with admin == true)
-    // may read/update/delete any user document.
     match /Users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow read, update, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && validUserOnCreate(request.resource.data);
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId && validUserOnUpdate(request.resource.data);
+      allow delete: if false;
 
-      // Chats subcollection under each user: owner or admin may read/write
       match /chats/{chatId} {
-        allow create: if request.auth != null && request.auth.uid == userId;
-        allow read, update, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
+        allow create, read, update, delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
 
-    // Sellers: authenticated users can create/update/delete their own session document
     match /Sellers/{session_id} {
-      allow create, update, delete: if request.auth != null && request.auth.uid == session_id;
-      allow read: if request.auth != null && (request.auth.uid == session_id || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == session_id && validSeller(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == session_id && validSeller(request.resource.data);
+      allow delete: if false;
+      allow read: if isAuthenticated();
+
+      match /calls/{callId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.auth.uid == session_id
+          && request.resource.data.sellerId == session_id
+          && request.resource.data.callId == null
+          && request.resource.data.recordingUrl == null
+          && validateCallOnCreate(request.resource.data);
+
+        allow update: if isAuthenticated() && request.auth.uid == session_id && validateCallOnUpdate(request.resource.data, resource.data);
+        allow delete: if isAuthenticated() && request.auth.uid == session_id;
+      }
     }
-    
-    // Calls nested under a seller: only the seller or admins may create/update/delete
-    match /Sellers/{session_id}/calls/{callId} {
-      allow read: if request.auth != null && (request.auth.uid == session_id || isAdmin());
 
-      // On create require authenticated seller and basic shape, disallow client-provided recordingUrl initially
-      allow create: if request.auth != null
-        && request.auth.uid == session_id
-        && request.resource.data.sellerId == session_id
-        && request.resource.data.callId == null
-        && request.resource.data.recordingUrl == null;
-
-      // Allow updates only from the seller or admin. Server-side processes using admin SDK bypass rules.
-      allow update, delete: if request.auth != null && (request.auth.uid == session_id || isAdmin());
+    // Allow collectionGroup queries on any `calls` subcollection for authenticated users.
+    // This ensures queries like `collectionGroup(db, 'calls')` are authorized.
+    match /{path=**}/calls/{callId} {
+      allow read: if isAuthenticated();
     }
 
-    // Top-level denormalized calls collection for global listing and reporting
-    match /calls/{callId} {
-      // Allow create only when the authenticated user is the seller referenced in the doc
-      allow create: if request.auth != null
-        && request.resource.data.sellerId == request.auth.uid;
-
-      // Allow read to the owning seller or admins
-      allow read: if request.auth != null && (resource.data.sellerId == request.auth.uid || isAdmin());
-
-      // Allow updates/deletes only to admins (server-side processes should use Admin SDK)
-      allow update, delete: if request.auth != null && isAdmin();
-    }
-    
     match /Meta/{target} {
-      allow read;
+      allow read: if true;
     }
-
-    // Keep any other collections closed by default (deny)
   }
 
-  // Helper to check admin flag on the requesting user's profile document
-  function isAdmin() {
-    return request.auth != null
-      && get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.admin == true;
+  function isAuthenticated() {
+    return request.auth != null;
+  }
+
+  function validUserOnCreate(data) {
+    return data != null
+      && data.email is string
+      && (data.firstname is string || data.lastname is string || data.email is string)
+      && (data.uid == null || data.uid == request.auth.uid);
+  }
+
+  function validUserOnUpdate(newData) {
+    return newData != null && !(newData.admin is bool);
+  }
+
+  function validSeller(data) {
+    return data != null && (data.name is string || data.storeName is string || data.email is string);
+  }
+
+  function validateCallOnCreate(d) {
+    return d != null
+      && d.sellerId is string
+      && d.sellerId == request.auth.uid
+      && (d.direction is string ? (d.direction in ['outbound','inbound']) : true)
+      && (d.status is string ? (d.status in ['started','live','ended']) : true)
+      && (d.provider is string ? (d.provider in ['webrtc','pstn','deepgram']) : true)
+      && (d.consent == null || (d.consent.given is bool))
+      && (d.meta == null || (d.meta.muted is bool))
+      && (d.callId == null)
+      && (d.recordingUrl == null);
+  }
+
+  function validateCallOnUpdate(newData, oldData) {
+    return newData != null
+      && newData.sellerId == oldData.sellerId
+      && (newData.callId == oldData.callId || newData.callId == null)
+      && (newData.recordingUrl == oldData.recordingUrl || newData.recordingUrl is string || newData.recordingUrl == null)
+      && (newData.status is string ? (newData.status in ['started','live','ended']) : true)
+      && (newData.meta == null || (newData.meta.muted is bool));
   }
 }

@@ -244,14 +244,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             // IMPORTANT: module scripts are cached/executed once per URL.
                             // When navigating back to chatbox in the SPA, we need chat.js to run again
                             // so it can bind to the newly-injected DOM.
-                            if (page === 'chatbox' && resolved.pathname.endsWith('/scripts/pages/chat.js')) {
-                                resolved.searchParams.set('t', Date.now().toString());
-                            }
+                            // For some SPA pages we need the module script to re-execute when
+                            // navigating back to the page. Add a cache-busting timestamp for
+                            // those module scripts so the browser will re-run them.
+                            if (['chatbox','callList','leads','voiceCall'].includes(page) && /\/scripts\/pages\/.+\.js$/.test(resolved.pathname)) {
+                                        resolved.searchParams.set('t', Date.now().toString());
+                                    }
 
                             newScript.src = resolved.href;
+                            // If the original script had no explicit type, but the src points to our
+                            // `/scripts/` folder (our ES module files live there), treat it as a module.
+                            if (!script.type && /\/scripts\//.test(resolved.pathname)) {
+                                newScript.type = 'module';
+                            }
                         } catch (e) {
                             // Fallback to original attribute
                             newScript.src = srcAttr;
+                            if (!script.type && /scripts\//.test(srcAttr)) {
+                                newScript.type = 'module';
+                            }
                         }
                     } else {
                         newScript.textContent = script.textContent;

@@ -1,6 +1,6 @@
 import { dbAddDoc, dbSetDoc, COLLECTIONS } from '../modules/db.js';
-import { serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-import { auth } from '../modules/firebaseInit.js';
+import { serverTimestamp, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import { auth, db } from '../modules/firebaseInit.js';
 
 // Simple voice-call UI wiring and Firestore lifecycle writes
 let startBtn;
@@ -11,6 +11,7 @@ let logEl;
 
 let currentCall = null; // { id, localStartTs }
 let muted = false;
+let statusBadge = null;
 
 function log(msg) {
     const time = new Date().toLocaleTimeString();
@@ -22,6 +23,15 @@ function log(msg) {
     } else {
         console.debug(line.textContent);
     }
+}
+
+function setStatus(text, variant = 'secondary') {
+    try {
+        if (!statusBadge) statusBadge = document.getElementById('callStatusBadge');
+        if (!statusBadge) return;
+        statusBadge.textContent = text;
+        statusBadge.className = 'badge bg-' + variant;
+    } catch (e) { /* ignore */ }
 }
 
 function getSessionId() {
@@ -96,13 +106,7 @@ async function createCallRecord(target, consent) {
         console.warn('Failed to set callId field:', e);
     }
 
-    // Also create/keep a denormalized top-level `calls/{callId}` document
-    try {
-        const topLevelPayload = Object.assign({}, payload, { callId: docRef.id, sellerId: sessionId });
-        await dbSetDoc(['calls', docRef.id], topLevelPayload, { merge: true });
-    } catch (e) {
-        console.warn('Failed to write top-level calls doc:', e);
-    }
+    // No top-level denormalized write: keep call documents under Sellers/{sellerId}/calls/{callId}
 
     return { id: docRef.id, sessionId };
 }
@@ -177,6 +181,45 @@ async function updateCallStatus(call, updates) {
     await dbSetDoc([COLLECTIONS.SELLERS, call.sessionId, 'calls', call.id], { ...updates, updatedAt: serverTimestamp() }, { merge: true });
 }
 
+// Gather all calls for a seller (ordered by creation time)
+async function gatherCallHistory(sessionId) {
+    if (!sessionId) return [];
+    try {
+        const colRef = collection(db, 'Sellers', sessionId, 'calls');
+        const q = query(colRef, orderBy('createdAt', 'asc'));
+        const snap = await getDocs(q);
+        const rows = [];
+        snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+        return rows;
+    } catch (e) {
+        console.warn('Failed to gather call history', e);
+        return [];
+    }
+}
+
+// Send the seller's call history and the latest call id to an n8n webhook.
+// Expects n8n to return JSON with at least a `summary` field. Saves result
+// back onto the call document as `aiSummary` and `aiAnalysis`.
+async function sendCallHistoryToN8n(sessionId, callId) {
+    const webhookUrl = 'https://harveygrowthproperties.app.n8n.cloud/webhook/deal-synthesis'; // replace with real webhook
+    const calls = await gatherCallHistory(sessionId);
+    const payload = { sellerId: sessionId, callId, calls, sentAt: new Date().toISOString() };
+    const resp = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error('Webhook responded ' + resp.status);
+    const data = await resp.json();
+    // Save AI summary back to the call doc (allowed for the call owner)
+    try {
+        await updateCallStatus({ id: callId, sessionId }, { aiSummary: data.summary || null, aiAnalysis: data.analysis || null });
+    } catch (e) {
+        console.warn('Failed to save AI summary to call doc', e);
+    }
+    return data;
+}
+
 function bindControls() {
     startBtn = document.getElementById('startCall');
     endBtn = document.getElementById('endCall');
@@ -184,20 +227,31 @@ function bindControls() {
     transcriptEl = document.getElementById('transcript');
     logEl = document.getElementById('callLog');
     // Ensure initial button states
-    if (startBtn) startBtn.disabled = false;
+    const consentCheckbox = document.getElementById('consentCheckbox');
+    if (startBtn) startBtn.disabled = !(consentCheckbox && consentCheckbox.checked);
     if (endBtn) endBtn.disabled = true;
+
+    // Toggle start button when consent changes
+    if (consentCheckbox) {
+        consentCheckbox.addEventListener('change', () => {
+            if (startBtn) startBtn.disabled = !consentCheckbox.checked;
+        });
+    }
 
     // Start call
     startBtn?.addEventListener('click', async () => {
         try {
             const target = null; // target input removed; calls use seller/session context
             log('Loading voice-agent (if needed)...');
-            try {
-                await loadVoiceAgentScript();
-                log('Voice agent loaded');
-            } catch (e) {
-                log('Voice agent script failed to load: ' + (e.message || e));
-            }
+                    try {
+                        setStatus('Connecting...', 'warning');
+                        await loadVoiceAgentScript();
+                        log('Voice agent loaded');
+                        setStatus('Agent ready', 'info');
+                    } catch (e) {
+                        log('Voice agent script failed to load: ' + (e.message || e));
+                        setStatus('Agent unavailable', 'danger');
+                    }
 
             // ensure user is signed in and consent given
             const sessionId = getSessionId();
@@ -233,16 +287,20 @@ function bindControls() {
                     console.warn('Failed to start voiceAgent2:', e);
                 }
 
-                window.voiceAgent2.client.onUserSpeech((t) => {
-                    const text = `User: ${t}`;
-                    window.voiceCallAppendTranscript(text);
-                    log('User speech: ' + (t || '(empty)'));
-                });
-                window.voiceAgent2.client.onAgentSpeech((t) => {
-                    const text = `AI: ${t}`;
-                    window.voiceCallAppendTranscript(text);
-                    log('Agent speech: ' + (t || '(empty)'));
-                });
+                // Avoid attaching duplicate handlers if already attached
+                if (!window.__voiceAgentHandlersAttached) {
+                    window.voiceAgent2.client.onUserSpeech((t) => {
+                        const text = `User: ${t}`;
+                        window.voiceCallAppendTranscript(text);
+                        log('User speech: ' + (t || '(empty)'));
+                    });
+                    window.voiceAgent2.client.onAgentSpeech((t) => {
+                        const text = `AI: ${t}`;
+                        window.voiceCallAppendTranscript(text);
+                        log('Agent speech: ' + (t || '(empty)'));
+                    });
+                    window.__voiceAgentHandlersAttached = true;
+                }
 
                 const agentSession = window.voiceAgent2.sessionId || null;
                 if (agentSession) {
@@ -252,6 +310,7 @@ function bindControls() {
 
             if (startBtn) startBtn.disabled = true;
             if (endBtn) endBtn.disabled = false;
+            setStatus('Live', 'success');
         } catch (e) {
             console.error(e);
             log('Failed to start call: ' + (e.message || e));
@@ -267,17 +326,34 @@ function bindControls() {
             const transcript = transcriptEl && transcriptEl.value && transcriptEl.value.trim() ? transcriptEl.value.trim() : null;
             await updateCallStatus(currentCall, { status: 'ended', endTime: serverTimestamp(), duration, transcript });
             log(`Call ended (duration ${duration ?? 'unknown'}s)`);
+            setStatus('Ended', 'secondary');
             // Ensure the voice agent is stopped and muted so it no longer listens or speaks
             try {
-                if (window.voiceAgent2 && typeof window.voiceAgent2.setMuted === 'function') {
-                    window.voiceAgent2.setMuted(true);
-                }
-                if (window.voiceAgent2 && typeof window.voiceAgent2.stop === 'function') {
-                    await window.voiceAgent2.stop();
+                if (window.voiceAgent2) {
+                    try { if (window.voiceAgent2.client && typeof window.voiceAgent2.client.setMuted === 'function') window.voiceAgent2.client.setMuted(true); } catch (e) {}
+                    try { if (typeof window.voiceAgent2.setMuted === 'function') window.voiceAgent2.setMuted(true); } catch (e) {}
+                    try { if (typeof window.voiceAgent2.stop === 'function') await window.voiceAgent2.stop(); } catch (e) {}
+                    try { if (window.voiceAgent2.client && typeof window.voiceAgent2.client.disconnect === 'function') window.voiceAgent2.client.disconnect(); } catch (e) {}
                 }
             } catch (e) {
                 console.warn('Error stopping voice agent on call end:', e);
             }
+                        // Send call history + latest call to n8n webhook (best-effort, async)
+                        try {
+                            const sessionId = getSessionId();
+                            const callId = currentCall && currentCall.id ? currentCall.id : null;
+                            if (sessionId && callId) {
+                                (async () => {
+                                    try {
+                                        await sendCallHistoryToN8n(sessionId, callId);
+                                        log('n8n: summary stored');
+                                    } catch (e) {
+                                        console.warn('n8n webhook error:', e);
+                                        log('n8n webhook failed: ' + (e.message || e));
+                                    }
+                                })();
+                            }
+                        } catch (e) { console.debug('n8n trigger failed', e); }
             if (startBtn) startBtn.disabled = false;
             if (endBtn) endBtn.disabled = true;
             currentCall = null;
@@ -292,9 +368,11 @@ function bindControls() {
         muted = !muted;
         if (muteBtn) muteBtn.textContent = muted ? 'Unmute' : 'Mute';
         log(muted ? 'Muted' : 'Unmuted');
+        setStatus(muted ? 'Muted' : 'Live', muted ? 'warning' : 'success');
         try {
-            if (window.voiceAgent2 && window.voiceAgent2.client && typeof window.voiceAgent2.client.setMuted === 'function') {
-                window.voiceAgent2.client.setMuted(muted);
+            if (window.voiceAgent2) {
+                try { if (window.voiceAgent2.client && typeof window.voiceAgent2.client.setMuted === 'function') window.voiceAgent2.client.setMuted(muted); } catch (e) {}
+                try { if (typeof window.voiceAgent2.setMuted === 'function') window.voiceAgent2.setMuted(muted); } catch (e) {}
             }
         } catch (e) {
             console.debug('voiceAgent mute toggle not supported', e);
