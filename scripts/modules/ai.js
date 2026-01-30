@@ -13,7 +13,7 @@
 
 // Get API Key
 import { dbGetDoc } from "./db.js";
-//const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
+const gemini = await dbGetDoc(['Meta', 'gemini']) ?? null;
 if (!gemini) throw new Error("Failed to Fetch Gemini Config");
 
 // Import Gemini API (Dynamic Import for URL)
