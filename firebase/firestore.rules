@@ -2,6 +2,75 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helper functions (must be inside this match block) ──
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function validUserOnCreate(data) {
+      return data != null
+        && data.email is string
+        && (data.firstname is string || data.lastname is string || data.email is string)
+        && (!('uid' in data) || data.uid == request.auth.uid);
+    }
+
+    function validUserOnUpdate(newData) {
+      return newData != null && !(newData.admin is bool);
+    }
+
+    function validSeller(data) {
+      return data != null && (data.name is string || data.storeName is string || data.email is string);
+    }
+
+    function validateCallOnCreate(d) {
+      return d != null
+        && d.sellerId is string
+        && d.sellerId == request.auth.uid
+        && (d.direction is string ? (d.direction in ['outbound','inbound']) : true)
+        && (d.status is string ? (d.status in ['started','live','ended']) : true)
+        && (d.provider is string ? (d.provider in ['webrtc','pstn','deepgram']) : true)
+        && (d.consent == null || (d.consent.given is bool))
+        && (d.meta == null || (d.meta.muted is bool))
+        && (d.callId == null)
+        && (d.recordingUrl == null);
+    }
+
+    function validateCallOnUpdate(newData, oldData) {
+      return newData != null
+        && newData.sellerId == oldData.sellerId
+        && (newData.callId == oldData.callId || newData.callId == null)
+        && (newData.recordingUrl == oldData.recordingUrl || newData.recordingUrl is string || newData.recordingUrl == null)
+        && (newData.status is string ? (newData.status in ['started','live','ended']) : true)
+        && (newData.meta == null || (newData.meta.muted is bool));
+    }
+
+    function validateSummaryOnCreate(d) {
+      return d != null
+        && (d.sellerId is string)
+        && (d.callId == null || d.callId is string)
+        && (d.focalCallId == null || d.focalCallId is string)
+        && (d.summary == null || d.summary is string)
+        && (d.analysis == null || (d.analysis is map))
+        && (d.score == null || d.score is number)
+        && (d.sentiment == null || d.sentiment is number)
+        && (d.tags == null || d.tags is list)
+        && (d.recommendedNextActions == null || d.recommendedNextActions is list);
+    }
+
+    function validateSummaryOnUpdate(newData, oldData) {
+      return newData != null
+        && newData.sellerId == oldData.sellerId
+        && (newData.callId == oldData.callId || newData.callId == null)
+        && (newData.focalCallId == oldData.focalCallId || newData.focalCallId == null)
+        && (newData.summary == oldData.summary || newData.summary is string || newData.summary == null)
+        && (newData.score == oldData.score || newData.score is number || newData.score == null)
+        && (newData.sentiment == oldData.sentiment || newData.sentiment is number || newData.sentiment == null);
+    }
+
+    // ── Collection rules ──
+
     match /Plans/{planId} {
       allow read: if true;
       allow create, update, delete: if false;
@@ -9,13 +78,11 @@ service cloud.firestore {
 
     match /Users/{userId} {
       allow create: if isAuthenticated() && request.auth.uid == userId && validUserOnCreate(request.resource.data);
-      // Any authenticated user can read user documents.
       allow read: if isAuthenticated();
       allow update: if isAuthenticated() && request.auth.uid == userId && validUserOnUpdate(request.resource.data);
       allow delete: if false;
 
       match /chats/{chatId} {
-        // Chats are readable by any authenticated user, but only the owner may create/update/delete their own chats.
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && request.auth.uid == userId;
         allow update: if isAuthenticated() && request.auth.uid == userId;
@@ -42,10 +109,7 @@ service cloud.firestore {
         allow delete: if isAuthenticated() && request.auth.uid == session_id;
       }
 
-      // Summaries subcollection: separate documents for AI summaries and analysis
       match /summaries/{summaryId} {
-        // Allow authenticated users to read summaries (to support grouped views),
-        // but only the seller (owner) may create/update/delete their own summaries.
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && request.auth.uid == session_id && validateSummaryOnCreate(request.resource.data);
         allow update: if isAuthenticated() && request.auth.uid == session_id && validateSummaryOnUpdate(request.resource.data, resource.data);
@@ -53,8 +117,6 @@ service cloud.firestore {
       }
     }
 
-    // Allow collectionGroup queries on any `calls` subcollection for authenticated users.
-    // This ensures queries like `collectionGroup(db, 'calls')` are authorized.
     match /{path=**}/calls/{callId} {
       allow read: if isAuthenticated();
     }
@@ -62,70 +124,5 @@ service cloud.firestore {
     match /Meta/{target} {
       allow read: if true;
     }
-  }
-
-  function isAuthenticated() {
-    return request.auth != null;
-  }
-
-  function validUserOnCreate(data) {
-    return data != null
-      && data.email is string
-      && (data.firstname is string || data.lastname is string || data.email is string)
-      && (data.uid == null || data.uid == request.auth.uid);
-  }
-
-  function validUserOnUpdate(newData) {
-    return newData != null && !(newData.admin is bool);
-  }
-
-  function validSeller(data) {
-    return data != null && (data.name is string || data.storeName is string || data.email is string);
-  }
-
-  function validateCallOnCreate(d) {
-    return d != null
-      && d.sellerId is string
-      && d.sellerId == request.auth.uid
-      && (d.direction is string ? (d.direction in ['outbound','inbound']) : true)
-      && (d.status is string ? (d.status in ['started','live','ended']) : true)
-      && (d.provider is string ? (d.provider in ['webrtc','pstn','deepgram']) : true)
-      && (d.consent == null || (d.consent.given is bool))
-      && (d.meta == null || (d.meta.muted is bool))
-      && (d.callId == null)
-      && (d.recordingUrl == null);
-  }
-
-  function validateCallOnUpdate(newData, oldData) {
-    return newData != null
-      && newData.sellerId == oldData.sellerId
-      && (newData.callId == oldData.callId || newData.callId == null)
-      && (newData.recordingUrl == oldData.recordingUrl || newData.recordingUrl is string || newData.recordingUrl == null)
-      && (newData.status is string ? (newData.status in ['started','live','ended']) : true)
-      && (newData.meta == null || (newData.meta.muted is bool));
-  }
-
-  // Validate summary documents written by clients
-  function validateSummaryOnCreate(d) {
-    return d != null
-      && (d.sellerId is string)
-      && (d.callId == null || d.callId is string)
-      && (d.focalCallId == null || d.focalCallId is string)
-      && (d.summary == null || d.summary is string)
-      && (d.analysis == null || (d.analysis is map))
-      && (d.score == null || d.score is number)
-      && (d.sentiment == null || d.sentiment is number)
-      && (d.tags == null || d.tags is list)
-      && (d.recommendedNextActions == null || d.recommendedNextActions is list);
-  }
-
-  function validateSummaryOnUpdate(newData, oldData) {
-    return newData != null
-      && newData.sellerId == oldData.sellerId
-      && (newData.callId == oldData.callId || newData.callId == null)
-      && (newData.focalCallId == oldData.focalCallId || newData.focalCallId == null)
-      && (newData.summary == oldData.summary || newData.summary is string || newData.summary == null)
-      && (newData.score == oldData.score || newData.score is number || newData.score == null)
-      && (newData.sentiment == oldData.sentiment || newData.sentiment is number || newData.sentiment == null);
   }
 }
