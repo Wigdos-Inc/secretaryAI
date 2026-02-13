@@ -234,11 +234,21 @@
     margin: 0;
 }
 
-/* Respopadding: 20px;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .leads-page {
+        padding: 20px;
+    }
+
+    .lead-card {
+        padding: 16px;
+        border-radius: 12px;
     }
 
     .lead-card-header {
         flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
     }
 
     .lead-icon {
@@ -262,12 +272,9 @@
     }
 
     .badge-grade {
-        width: 40px;
-        height: 40px;
-        font-size: 16
-
-    .lead-title {
-        font-size: 18px;
+        padding: 6px 10px;
+        border-radius: 12px;
+        font-size: 14px;
     }
 
     .lead-meta {
@@ -276,3 +283,74 @@
         gap: 8px;
     }
 }
+
+/* Inline Summary Panel (page-like) */
+.summary-panel-backdrop {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.15);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.summary-panel {
+  background: #fff;
+  border-radius: 0;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  box-shadow: none;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-panel-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #eee;
+  background: linear-gradient(90deg, #ffffff, #fafafa);
+}
+
+.summary-panel-title { font-weight:700; font-size:18px }
+.summary-panel-actions { display:flex; gap:10px; align-items:center }
+.summary-panel-close { background:transparent; border:1px solid #ddd; padding:6px 10px; border-radius:6px; cursor:pointer }
+
+.summary-panel-body { padding: 20px; max-height: calc(100vh - 80px); overflow:auto }
+.summary-panel-loader { color: #666; margin-bottom: 8px }
+.summary-panel-error { color:#b71c1c }
+.summary-panel-content .summary-text { margin-bottom:12px }
+.summary-panel-content h4 { margin-top:12px; margin-bottom:6px }
+.summary-panel-meta { font-size:14px; color:#333; margin-bottom:8px }
+.summary-panel .badge-grade { display:inline-block; }
+
+/* Make panel look like a page on small screens */
+@media (max-width: 768px) {
+  .summary-panel { max-width: 100%; }
+  .summary-panel-header { padding: 14px; }
+  .summary-panel-body { padding: 14px; }
+}
+
+/* Deals inline panel variant */
+.deals-inline-panel {
+  background: #fff;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 18px auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.deals-inline-panel .summary-panel-body { padding: 20px; }
+
+

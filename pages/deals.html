@@ -6,24 +6,24 @@
                 <i class="bi bi-telephone-fill"></i>
             </div>
             <div class="call-header-info">
-                <h1 class="call-client-name" id="clientName">Michael Rodriguez</h1>
+                <h1 class="call-client-name" id="clientName">Loading...</h1>
                 <div class="call-meta">
                     <span class="meta-item">
                         <i class="bi bi-clock"></i>
-                        <span id="callDate">January 22, 2026 at 2:45 PM</span>
+                        <span id="callDate">-</span>
                     </span>
                     <span class="meta-item">
-                        Duration: <span id="callDuration">8 min 32 sec</span>
+                        Duration: <span id="callDuration">-</span>
                     </span>
                     <span class="meta-item">
-                        Status: <span id="callStatus">Completed</span>
+                        Status: <span id="callStatus">-</span>
                     </span>
                 </div>
             </div>
         </div>
         <div class="call-grade">
             <div class="grade-badge grade-a" id="gradeBadge">A</div>
-            <span class="grade-label">Excellent Call</span>
+            <span class="grade-label" id="gradeLabel">-</span>
         </div>
     </div>
 
@@ -36,19 +36,19 @@
         <div class="info-grid">
             <div class="info-item">
                 <span class="info-label">Phone Number</span>
-                <span class="info-value" id="clientPhone">+1 (555) 789-4321</span>
+                <span class="info-value" id="clientPhone">-</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Email</span>
-                <span class="info-value" id="clientEmail">michael.rodriguez@email.com</span>
+                <span class="info-value" id="clientEmail">-</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Property Address</span>
-                <span class="info-value" id="propertyAddress">456 Oak Avenue, Los Angeles, CA</span>
+                <span class="info-value" id="propertyAddress">-</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Call Type</span>
-                <span class="info-value" id="callType">Investment Consultation</span>
+                <span class="info-value" id="callType">-</span>
             </div>
         </div>
     </div>
@@ -63,19 +63,13 @@
             <i class="bi bi-chevron-down chevron-icon" id="summary-chevron"></i>
         </div>
         <div class="card-content expanded" id="summary-content">
-            <p class="summary-text">
-                The AI assistant successfully engaged with Michael Rodriguez regarding investment opportunities in multi-family properties. 
-                The conversation covered his budget range ($500K-$750K), preferred locations (Los Angeles and San Diego areas), 
-                and investment goals (passive income generation).
-            </p>
+            <div id="leadLoader" class="lead-loader">Loading summary…</div>
+            <div id="leadError" class="lead-error" style="display:none;color:#b71c1c;margin-bottom:12px;"></div>
+            <p class="summary-text">No summary loaded yet.</p>
             <div class="summary-highlights">
                 <h3>Key Highlights:</h3>
                 <ul>
-                    <li>Client is a first-time multi-family investor</li>
-                    <li>Strong financial position with pre-approved financing</li>
-                    <li>Interested in long-term wealth building through real estate</li>
-                    <li>Preferred properties with 4-8 units</li>
-                    <li>Looking to close within 60-90 days</li>
+                    <li>No highlights available.</li>
                 </ul>
             </div>
         </div>
@@ -94,25 +88,25 @@
             <div class="analysis-section">
                 <h3>Sentiment Analysis</h3>
                 <div class="sentiment-bar">
-                    <div class="sentiment-fill positive" style="width: 85%"></div>
+                    <div class="sentiment-fill" style="width: 0%"></div>
                 </div>
-                <p class="sentiment-score">85% Positive</p>
+                <p class="sentiment-score">-</p>
             </div>
 
             <div class="analysis-section">
                 <h3>Lead Quality Score</h3>
                 <div class="quality-indicators">
-                    <div class="indicator high">
+                    <div class="indicator">
                         <span class="indicator-label">Interest Level</span>
-                        <span class="indicator-value">High</span>
+                        <span class="indicator-value" id="interestLevel">-</span>
                     </div>
-                    <div class="indicator high">
+                    <div class="indicator">
                         <span class="indicator-label">Financial Readiness</span>
-                        <span class="indicator-value">High</span>
+                        <span class="indicator-value" id="financialReadiness">-</span>
                     </div>
-                    <div class="indicator medium">
+                    <div class="indicator">
                         <span class="indicator-label">Timeline Urgency</span>
-                        <span class="indicator-value">Medium</span>
+                        <span class="indicator-value" id="timelineUrgency">-</span>
                     </div>
                 </div>
             </div>
@@ -122,15 +116,15 @@
                 <div class="metrics-grid">
                     <div class="metric">
                         <span class="metric-label">Conversation Flow</span>
-                        <span class="metric-value">9.2/10</span>
+                        <span class="metric-value" id="conversationFlow">-</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">Response Accuracy</span>
-                        <span class="metric-value">9.5/10</span>
+                        <span class="metric-value" id="responseAccuracy">-</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">Client Satisfaction</span>
-                        <span class="metric-value">9.0/10</span>
+                        <span class="metric-value" id="clientSatisfaction">-</span>
                     </div>
                 </div>
             </div>
@@ -147,26 +141,8 @@
             <i class="bi bi-chevron-down chevron-icon" id="transcript-chevron"></i>
         </div>
         <div class="card-content expanded" id="transcript-content">
-            <div class="transcript">
-                <div class="transcript-message ai">
-                    <div class="transcript-avatar">AI</div>
-                    <div class="transcript-content">
-                        <div class="transcript-timestamp">2:45:03 PM</div>
-                        <div class="transcript-text">Good afternoon! This is Sarah from Growth Properties. Am I speaking with Michael Rodriguez?</div>
-                    </div>
-                </div>
-
-                <div class="transcript-message client">
-                    <div class="transcript-avatar">MR</div>
-                    <div class="transcript-content">
-                        <div class="transcript-timestamp">2:45:08 PM</div>
-                        <div class="transcript-text">Yes, this is Michael.</div>
-                    </div>
-                </div>
-
-                <div class="transcript-note">
-                    <em>Transcript continues...</em>
-                </div>
+            <div class="transcript" id="transcriptList">
+                <div class="transcript-note" id="transcriptPlaceholder"><em>Transcript will appear here when available.</em></div>
             </div>
         </div>
     </div>
@@ -188,3 +164,4 @@
         });
     });
 </script>
+<script type="module" src="../scripts/pages/leadDetails.js"></script>

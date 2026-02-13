@@ -1,6 +1,7 @@
 import { db, auth } from '../modules/firebaseInit.js';
-import { collection, collectionGroup, doc, getDoc, query, orderBy, limit, getDocs, startAfter } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-const callListContent = document.getElementById('callListContent');
+import { collection, collectionGroup, doc, getDoc, query, orderBy, limit, getDocs, startAfter, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import { renderSummaryFragment } from './leadDetails.js';
+const callListContent = document.getElementById('callListContent') || document.getElementById('leadsList');
 const emptyState = document.getElementById('emptyState');
 const PAGE_SIZE = 25;
 // UI elements for seller view controls
@@ -91,14 +92,24 @@ function renderGrouped(sellerMap) {
     const name = s.name || sid;
     const count = s.calls.length || 0;
     const last = s.lastCall ? fmtDate(s.lastCall) : '-';
+    const summarySnippet = s.summarySnippet || '';
+    const score = (s.summaryScore != null) ? s.summaryScore : null;
+    const grade = score != null ? (score >= 85 ? 'A' : (score >= 70 ? 'B' : 'C')) : null;
+    const badgeClass = grade === 'A' ? 'grade-a' : (grade === 'B' ? 'grade-b' : (grade === 'C' ? 'grade-c' : ''));
+    const hasSummary = !!s.latestSummary && !!s.latestSummary.id;
+    const summaryId = hasSummary ? (s.latestSummary.id || '') : '';
+
     return `
       <div class="seller-row" data-seller-id="${sid}">
         <div class="seller-header d-flex justify-content-between align-items-center p-2 border rounded mb-2">
           <div>
             <strong class="seller-name">${name}</strong>
             <div class="small text-muted">Last: ${last} · Calls: ${count}</div>
+            ${summarySnippet ? `<div class="small summary-snippet text-truncate">${summarySnippet}</div>` : ''}
           </div>
           <div>
+            ${grade ? `<span class="badge-grade ${badgeClass}">${grade}</span>` : ''}
+            ${hasSummary ? `<button class="btn btn-sm btn-primary view-summary" data-seller-id="${sid}" data-summary-id="${summaryId}">View summary</button>` : `<button class="btn btn-sm btn-outline-secondary run-analysis" data-seller-id="${sid}">Run analysis</button>`}
             <button class="btn btn-sm btn-outline-primary view-seller" data-seller-id="${sid}">View calls</button>
           </div>
         </div>
@@ -107,7 +118,7 @@ function renderGrouped(sellerMap) {
 
   callListContent.innerHTML = html;
 
-  // attach click handlers for 'View calls'
+  // attach click handlers for 'View calls', 'View summary' and 'Run analysis'
   callListContent.querySelectorAll('.view-seller').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const sid = btn.getAttribute('data-seller-id');
@@ -116,6 +127,252 @@ function renderGrouped(sellerMap) {
       // show toolbar and load seller's first page
       showToolbarForSeller(sid);
       await loadCallsForSeller(sid);
+    });
+  });
+
+  callListContent.querySelectorAll('.view-summary').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const sid = btn.getAttribute('data-seller-id');
+      const summaryId = btn.getAttribute('data-summary-id');
+      if (!sid || !summaryId) return;
+      debugLog('user clicked seller to view summary', { sid, summaryId });
+      // Keep selected in localStorage for compatibility
+      localStorage.setItem('selectedSeller', sid);
+      localStorage.setItem('selectedSummaryId', summaryId);
+      // Navigate using hash and show inline deals view
+      window.location.hash = `deals?seller=${encodeURIComponent(sid)}&summary=${encodeURIComponent(summaryId)}`;
+      try {
+        await showDealsInline(sid, summaryId);
+      } catch (err) {
+        debugLog('Failed to open deals inline view', { sid, summaryId, error: err && err.message ? err.message : String(err) });
+        alert('Failed to load summary. See console for details.');
+      }
+    });
+  });
+
+  // Hash-driven inline deals panel
+  async function showDealsInline(sellerId, summaryId) {
+    // prevent duplicates
+    if (document.getElementById('dealsInlineBackdrop')) return;
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'dealsInlineBackdrop';
+    backdrop.className = 'summary-panel-backdrop';
+
+    const panel = document.createElement('div');
+    panel.className = 'deals-inline-panel';
+    panel.id = 'dealsInlinePanel';
+
+    panel.innerHTML = `
+      <div class="summary-panel-header">
+        <div class="summary-panel-title">Loading lead…</div>
+        <div class="summary-panel-actions">
+          <a class="btn btn-sm btn-outline-secondary open-full" href="#">Open full page</a>
+          <button class="summary-panel-close" aria-label="Close">Close</button>
+        </div>
+      </div>
+      <div class="summary-panel-body">Loading lead details…</div>
+    `;
+
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+
+    function closePanel() {
+      try { backdrop.remove(); } catch (e) {}
+      try { window.location.hash = ''; } catch (e) {}
+    }
+    panel.querySelector('.summary-panel-close')?.addEventListener('click', closePanel);
+    backdrop.addEventListener('click', (ev) => { if (ev.target === backdrop) closePanel(); });
+
+    const openFull = panel.querySelector('.open-full');
+    if (openFull) openFull.href = `/pages/deals.html?seller=${encodeURIComponent(sellerId)}&summary=${encodeURIComponent(summaryId)}`;
+
+    try {
+      const resp = await fetch('/pages/deals.html');
+      const html = await resp.text();
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const frag = tmp.querySelector('.lead-detail-page');
+      const body = panel.querySelector('.summary-panel-body');
+      if (frag && body) {
+        body.innerHTML = ''; body.appendChild(frag.cloneNode(true));
+        // render summary into the newly-inserted fragment
+        await renderSummaryFragment(sellerId, summaryId, body);
+        const title = panel.querySelector('.summary-panel-title'); if (title) title.textContent = `Summary — ${localStorage.getItem('selectedSeller') || sellerId}`;
+      } else {
+        if (body) body.textContent = 'Failed to load lead UI';
+      }
+    } catch (e) {
+      console.error('showDealsInline failed', e);
+      const body = panel.querySelector('.summary-panel-body'); if (body) body.textContent = 'Failed to load lead details';
+    }
+  }
+
+  // Activate inline view if hash indicates a deals view
+  function parseHashForDeals() {
+    try {
+      const h = window.location.hash.replace(/^#/, '');
+      if (!h) return null;
+      if (!h.startsWith('deals')) return null;
+      const params = new URLSearchParams(h.replace(/^deals[?&]?/, ''));
+      const sid = params.get('seller');
+      const sidDecoded = sid ? decodeURIComponent(sid) : null;
+      const summary = params.get('summary');
+      const summaryDecoded = summary ? decodeURIComponent(summary) : null;
+      return sidDecoded && summaryDecoded ? { seller: sidDecoded, summary: summaryDecoded } : null;
+    } catch (e) { return null; }
+  }
+
+  window.addEventListener('hashchange', () => {
+    const p = parseHashForDeals();
+    if (p) showDealsInline(p.seller, p.summary).catch(e => console.warn('showDealsInline from hash failed', e));
+  });
+
+  // On initial load, activate if hash present
+  const initial = parseHashForDeals();
+  if (initial) setTimeout(() => showDealsInline(initial.seller, initial.summary).catch(e => console.warn('showDealsInline initial load failed', e)), 50);
+
+  // Inline panel: create, fetch summary, and render it into a page-like panel
+  async function showSummaryPanel(sellerId, summaryId) {
+    // Prevent duplicate panels
+    if (document.getElementById('summaryPanelBackdrop')) return;
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'summaryPanelBackdrop';
+    backdrop.className = 'summary-panel-backdrop';
+
+    const panel = document.createElement('div');
+    panel.className = 'summary-panel';
+    panel.id = 'summaryPanel';
+
+    panel.innerHTML = `
+      <div class="summary-panel-header">
+        <div class="summary-panel-title">Loading summary…</div>
+        <div class="summary-panel-actions">
+          <a class="btn btn-sm btn-outline-secondary open-full" href="#">Open full page</a>
+          <button class="summary-panel-close" aria-label="Close">Close</button>
+        </div>
+      </div>
+      <div class="summary-panel-body">
+        <div class="summary-panel-loader">Loading…</div>
+        <div class="summary-panel-content" style="display:none">
+          <div class="summary-panel-meta"><span class="summary-seller-name"></span> <span class="summary-grade badge-grade" style="margin-left:8px"></span></div>
+          <div class="summary-main">
+            <p class="summary-text">—</p>
+            <h4>Highlights</h4>
+            <ul class="summary-highlights"></ul>
+            <h4>Recommended Next Actions</h4>
+            <ul class="summary-actions"></ul>
+          </div>
+        </div>
+        <div class="summary-panel-error" style="display:none;color:#b71c1c"></div>
+      </div>
+    `;
+
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+
+    // Hook up close
+    backdrop.addEventListener('click', (ev) => { if (ev.target === backdrop) closePanel(); });
+    panel.querySelector('.summary-panel-close')?.addEventListener('click', closePanel);
+    document.addEventListener('keydown', escHandler);
+
+    function escHandler(e) { if (e.key === 'Escape') closePanel(); }
+    function closePanel() {
+      try { document.removeEventListener('keydown', escHandler); } catch (e) {}
+      try { backdrop.remove(); } catch (e) {}
+    }
+
+    // Fetch seller name
+    let sellerName = sellerId;
+    try {
+      const udoc = await getDoc(doc(db, 'Users', sellerId));
+      if (udoc && udoc.exists()) {
+        const d = udoc.data() || {};
+        sellerName = ((d.firstname || '') + ' ' + (d.lastname || '')).trim() || d.email || sellerId;
+      } else {
+        const sdoc = await getDoc(doc(db, 'Sellers', sellerId));
+        if (sdoc && sdoc.exists()) { const sd = sdoc.data() || {}; sellerName = sd.name || sd.storeName || sd.email || sellerId; }
+      }
+    } catch (e) {
+      console.warn('Failed to load seller name for panel', e);
+    }
+
+    // Update title
+    panel.querySelector('.summary-panel-title').textContent = `Summary — ${sellerName}`;
+
+    const loader = panel.querySelector('.summary-panel-loader');
+    const content = panel.querySelector('.summary-panel-content');
+    const errorEl = panel.querySelector('.summary-panel-error');
+
+    // Wire "Open full page" link to real page
+    const openFull = panel.querySelector('.open-full');
+    if (openFull) {
+      openFull.href = `/pages/deals.html?seller=${encodeURIComponent(sellerId)}&summary=${encodeURIComponent(summaryId)}`;
+    }
+
+    // Fetch summary doc
+    try {
+      const sdoc = await getDoc(doc(db, 'Sellers', sellerId, 'summaries', summaryId));
+      if (!sdoc || !sdoc.exists()) {
+        throw new Error('Summary not found');
+      }
+      const sdata = sdoc.data() || {};
+
+      loader.style.display = 'none';
+      content.style.display = 'block';
+
+      const nameEl = panel.querySelector('.summary-seller-name');
+      const gradeEl = panel.querySelector('.summary-grade');
+      const summaryTextEl = panel.querySelector('.summary-text');
+      const highsEl = panel.querySelector('.summary-highlights');
+      const actionsEl = panel.querySelector('.summary-actions');
+
+      if (nameEl) nameEl.textContent = sellerName;
+      if (gradeEl) {
+        const g = typeof sdata.score === 'number' ? (sdata.score >= 85 ? 'A' : (sdata.score >= 70 ? 'B' : 'C')) : '-';
+        gradeEl.textContent = g;
+      }
+      if (summaryTextEl) summaryTextEl.textContent = sdata.summary || 'No summary provided.';
+
+      highsEl.innerHTML = '';
+      const highs = Array.isArray(sdata.highlights) ? sdata.highlights : (sdata.analysis && Array.isArray(sdata.analysis.highlights) ? sdata.analysis.highlights : []);
+      if (!highs || highs.length === 0) highsEl.innerHTML = '<li>No highlights available.</li>';
+      else highs.forEach(h => { const li = document.createElement('li'); li.textContent = h; highsEl.appendChild(li); });
+
+      actionsEl.innerHTML = '';
+      if (Array.isArray(sdata.recommendedNextActions) && sdata.recommendedNextActions.length) {
+        sdata.recommendedNextActions.forEach(a => { const li = document.createElement('li'); li.textContent = a; actionsEl.appendChild(li); });
+      } else {
+        actionsEl.innerHTML = '<li>No recommended actions.</li>';
+      }
+
+    } catch (e) {
+      loader.style.display = 'none';
+      errorEl.style.display = 'block';
+      errorEl.textContent = 'Failed to load summary. See console for details.';
+      console.error('showSummaryPanel failed', e);
+    }
+
+    return new Promise(resolve => { /* resolved when panel opened; caller doesn't await close */ resolve(); });
+  }
+
+  callListContent.querySelectorAll('.run-analysis').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const sid = btn.getAttribute('data-seller-id');
+      if (!sid) return;
+      debugLog('user requested run-analysis for seller', sid);
+      // Run analysis by posting to the n8n webhook (best-effort).
+      try {
+        const colRef = collection(db, 'Sellers', sid, 'calls');
+        const q = query(colRef, orderBy('createdAt', 'asc'));
+        const snap = await getDocs(q);
+        const calls = [];
+        snap.forEach(d => calls.push({ id: d.id, ...d.data() }));
+        await fetch('https://harveygrowthproperties.app.n8n.cloud/webhook-test/deal-synthesis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sellerId: sid, callId: null, calls, sentAt: new Date().toISOString() }) });
+        debugLog('analysis requested for seller', sid);
+      } catch (err) {
+        debugLog('run-analysis failed', { seller: sid, error: err.message || String(err) });
+      }
     });
   });
 }
@@ -211,6 +468,14 @@ async function loadCalls() {
       }
 
       // Best-effort resolve seller names: prefer Users/{id} (full name), fallback to Sellers/{id}
+      // Also subscribe to latest summary for each seller (real-time updates)
+      if (typeof window.__summaryUnsubscribers === 'undefined') window.__summaryUnsubscribers = {};
+      // Clear existing listeners
+      Object.keys(window.__summaryUnsubscribers).forEach(k => {
+        try { window.__summaryUnsubscribers[k](); } catch(e) {}
+      });
+      window.__summaryUnsubscribers = {};
+
       const sellerIds = Object.keys(map).slice(0, 50);
       await Promise.all(sellerIds.map(async sid => {
         try {
@@ -219,11 +484,37 @@ async function loadCalls() {
             const ud = udoc.data() || {};
             const full = ((ud.firstname || '') + ' ' + (ud.lastname || '')).trim();
             map[sid].name = full || ud.email || sid;
-            return;
+          } else {
+            const sdoc = await getDoc(doc(db, 'Sellers', sid));
+            if (sdoc && sdoc.exists()) map[sid].name = sdoc.data().name || sdoc.data().storeName || sdoc.data().email || sid;
           }
 
-          const sdoc = await getDoc(doc(db, 'Sellers', sid));
-          if (sdoc && sdoc.exists()) map[sid].name = sdoc.data().name || sdoc.data().storeName || sdoc.data().email || sid;
+          // Subscribe to latest summary for this seller (updates automatically)
+          try {
+            const summariesCol = collection(db, 'Sellers', sid, 'summaries');
+            const qsum = query(summariesCol, orderBy('createdAt', 'desc'), limit(1));
+            const unsub = onSnapshot(qsum, ssnap => {
+              if (ssnap && ssnap.docs && ssnap.docs.length) {
+                const sd = ssnap.docs[0];
+                const sdata = sd.data() || {};
+                map[sid].latestSummary = { id: sd.id, ...sdata };
+                map[sid].summarySnippet = sdata.summary ? (sdata.summary.length > 180 ? sdata.summary.slice(0,180) + '…' : sdata.summary) : '';
+                map[sid].summaryScore = (typeof sdata.score === 'number') ? sdata.score : null;
+              } else {
+                map[sid].latestSummary = null;
+                map[sid].summarySnippet = '';
+                map[sid].summaryScore = null;
+              }
+              // Re-render list to reflect summary change
+              renderGrouped(map);
+            }, err => {
+              // ignore snapshot errors
+            });
+            window.__summaryUnsubscribers[sid] = unsub;
+          } catch (e2) {
+            // ignore summary listener errors
+          }
+
         } catch (e) {}
       }));
 
@@ -323,5 +614,13 @@ function init() {
 
   document.addEventListener('DOMContentLoaded', loadCalls);
   if (document.readyState !== 'loading') loadCalls();
+
+  // Clean up summary snapshot listeners when leaving the page
+  window.addEventListener('beforeunload', () => {
+    if (window.__summaryUnsubscribers) {
+      Object.values(window.__summaryUnsubscribers).forEach(unsub => { try { unsub(); } catch(e){} });
+      window.__summaryUnsubscribers = {};
+    }
+  });
 }
 init();

@@ -1,5 +1,5 @@
 import { dbAddDoc, dbSetDoc, COLLECTIONS } from '../modules/db.js';
-import { serverTimestamp, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+import { serverTimestamp, collection, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { auth, db } from '../modules/firebaseInit.js';
 
 // Simple voice-call UI wiring and Firestore lifecycle writes
@@ -203,7 +203,44 @@ async function gatherCallHistory(sessionId) {
 async function sendCallHistoryToN8n(sessionId, callId) {
     const webhookUrl = 'https://harveygrowthproperties.app.n8n.cloud/webhook-test/deal-synthesis'; // replace with real webhook
     const calls = await gatherCallHistory(sessionId);
-    const payload = { sellerId: sessionId, callId, calls, sentAt: new Date().toISOString() };
+
+    // Fetch the most recent summary for this seller (if any) so the AI can integrate old summary
+    let previousSummary = null;
+    try {
+        const summariesCol = collection(db, 'Sellers', sessionId, 'summaries');
+        const q = query(summariesCol, orderBy('createdAt', 'desc'), limit(1));
+        let snap = null;
+        try {
+            snap = await getDocs(q);
+        } catch (e) {
+            // If this looks like an auth/permission issue, try refreshing the ID token once and retry.
+            console.warn('Failed to fetch previous summary for seller before sending to n8n', e);
+            if (auth && auth.currentUser && (e.code === 'permission-denied' || (e.message && e.message.toLowerCase().includes('permission')))) {
+                try {
+                    console.log('Refreshing ID token to retry previous-summary fetch');
+                    await auth.currentUser.getIdToken(true);
+                    snap = await getDocs(q);
+                    console.log('Previous-summary fetch succeeded after token refresh');
+                } catch (e2) {
+                    console.warn('Retry to fetch previous summary also failed', { err: e2, authUser: auth && auth.currentUser ? auth.currentUser.uid : null, sessionId });
+                }
+            }
+        }
+
+        if (snap && snap.docs && snap.docs.length) {
+            const d = snap.docs[0];
+            previousSummary = { id: d.id, ...d.data() };
+        }
+    } catch (e) {
+        // Final fallback: log concise diagnostics and continue without previousSummary
+        console.warn('Unable to read previous summary (continuing without it)', {
+            error: e && e.message ? e.message : e,
+            authUser: auth && auth.currentUser ? auth.currentUser.uid : null,
+            sessionId
+        });
+    }
+
+    const payload = { sellerId: sessionId, callId, calls, previousSummary, sentAt: new Date().toISOString() };
     const resp = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,12 +248,92 @@ async function sendCallHistoryToN8n(sessionId, callId) {
     });
     if (!resp.ok) throw new Error('Webhook responded ' + resp.status);
     const data = await resp.json();
-    // Save AI summary back to the call doc (allowed for the call owner)
+    console.log('n8n webhook response:', data);
+
+    // Save raw AI response and parsed fields back to the call doc for debugging/visibility
+    const aiSummary = (data && Object.prototype.hasOwnProperty.call(data, 'summary')) ? data.summary : null;
+    const aiAnalysis = (data && Object.prototype.hasOwnProperty.call(data, 'analysis')) ? data.analysis : null;
+    const aiErrors = (data && data.errors) ? data.errors : null;
     try {
-        await updateCallStatus({ id: callId, sessionId }, { aiSummary: data.summary || null, aiAnalysis: data.analysis || null });
+        // Create a separate summary document under Sellers/{sellerId}/summaries
+        const summaryPayload = {
+            sellerId: sessionId,
+            callId: callId || null,
+            focalCallId: (data && data.focalCallId) ? data.focalCallId : null,
+            summary: aiSummary || null,
+            analysis: aiAnalysis || null,
+            score: (data && typeof data.score === 'number') ? data.score : null,
+            sentiment: (data && typeof data.sentiment === 'number') ? data.sentiment : null,
+            tags: (data && data.tags) ? data.tags : null,
+            recommendedNextActions: (data && data.recommendedNextActions) ? data.recommendedNextActions : null,
+            raw: data || null,
+            errors: aiErrors || null,
+            model: (data && data.model) ? data.model : null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+
+        // Add summary doc (keeps call documents smaller and provides an audit trail)
+        let summaryDocRef = null;
+        // Ensure the client is authenticated as the seller before attempting to write to their summaries subcollection.
+        if (!auth || !auth.currentUser || auth.currentUser.uid !== sessionId) {
+            console.warn('Skipping write to summaries: not authenticated as seller', { authUser: auth && auth.currentUser ? auth.currentUser.uid : null, expected: sessionId });
+        } else {
+            try {
+                summaryDocRef = await dbAddDoc([COLLECTIONS.SELLERS, sessionId, 'summaries'], summaryPayload);
+            } catch (e) {
+                console.warn('Failed to save summary doc to summaries subcollection', e);
+                // If this is a permission issue, try refreshing the auth token once and retry.
+                if ((e.code === 'permission-denied' || (e.message && e.message.toLowerCase().includes('permission'))) && auth && auth.currentUser) {
+                    try {
+                        console.log('Permission error saving summary; refreshing ID token and retrying once');
+                        await auth.currentUser.getIdToken(true);
+                        summaryDocRef = await dbAddDoc([COLLECTIONS.SELLERS, sessionId, 'summaries'], summaryPayload);
+                        console.log('Retry save summary succeeded after token refresh.');
+                    } catch (e2) {
+                        console.error('Retry to save summary failed:', e2);
+                        // Provide minimal diagnostic info to help debug Firestore rules/token issues
+                        try {
+                            const diagnostics = {
+                                authUser: auth && auth.currentUser ? auth.currentUser.uid : null,
+                                expectedSellerId: sessionId,
+                                summaryFields: {
+                                    summaryLength: summaryPayload.summary ? String(summaryPayload.summary.length) : 'null',
+                                    hasScore: typeof summaryPayload.score === 'number',
+                                    hasSentiment: typeof summaryPayload.sentiment === 'number',
+                                    tagsCount: Array.isArray(summaryPayload.tags) ? summaryPayload.tags.length : 0,
+                                    recommendedNextActionsCount: Array.isArray(summaryPayload.recommendedNextActions) ? summaryPayload.recommendedNextActions.length : 0
+                                }
+                            };
+                            console.error('Summary save diagnostics (no sensitive content):', diagnostics);
+                            console.error('If this persists, verify Firestore rules allow writes for the authenticated seller and ensure no browser extensions (adblock/privacy) are blocking network calls.');
+                        } catch (diagErr) {
+                            console.error('Failed to produce diagnostics for summary save failure', diagErr);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Link the summary doc back to the call document for quick access
+        const callUpdates = {
+            aiSummary: aiSummary || null,
+            aiAnalysis: aiAnalysis || null,
+            aiRawResponse: data || null,
+            aiErrors: aiErrors || null,
+            updatedAt: serverTimestamp()
+        };
+        if (summaryDocRef && summaryDocRef.id) callUpdates.latestSummaryId = summaryDocRef.id;
+
+        await updateCallStatus({ id: callId, sessionId }, callUpdates);
+
+        if (!aiSummary) {
+            console.warn('n8n: summary missing in response; raw response saved to call doc for inspection');
+        }
     } catch (e) {
         console.warn('Failed to save AI summary to call doc', e);
     }
+
     return data;
 }
 

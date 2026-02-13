@@ -41,6 +41,16 @@ service cloud.firestore {
         allow update: if isAuthenticated() && request.auth.uid == session_id && validateCallOnUpdate(request.resource.data, resource.data);
         allow delete: if isAuthenticated() && request.auth.uid == session_id;
       }
+
+      // Summaries subcollection: separate documents for AI summaries and analysis
+      match /summaries/{summaryId} {
+        // Allow authenticated users to read summaries (to support grouped views),
+        // but only the seller (owner) may create/update/delete their own summaries.
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.auth.uid == session_id && validateSummaryOnCreate(request.resource.data);
+        allow update: if isAuthenticated() && request.auth.uid == session_id && validateSummaryOnUpdate(request.resource.data, resource.data);
+        allow delete: if isAuthenticated() && request.auth.uid == session_id;
+      }
     }
 
     // Allow collectionGroup queries on any `calls` subcollection for authenticated users.
@@ -93,5 +103,29 @@ service cloud.firestore {
       && (newData.recordingUrl == oldData.recordingUrl || newData.recordingUrl is string || newData.recordingUrl == null)
       && (newData.status is string ? (newData.status in ['started','live','ended']) : true)
       && (newData.meta == null || (newData.meta.muted is bool));
+  }
+
+  // Validate summary documents written by clients
+  function validateSummaryOnCreate(d) {
+    return d != null
+      && (d.sellerId is string)
+      && (d.callId == null || d.callId is string)
+      && (d.focalCallId == null || d.focalCallId is string)
+      && (d.summary == null || d.summary is string)
+      && (d.analysis == null || (d.analysis is map))
+      && (d.score == null || d.score is number)
+      && (d.sentiment == null || d.sentiment is number)
+      && (d.tags == null || d.tags is list)
+      && (d.recommendedNextActions == null || d.recommendedNextActions is list);
+  }
+
+  function validateSummaryOnUpdate(newData, oldData) {
+    return newData != null
+      && newData.sellerId == oldData.sellerId
+      && (newData.callId == oldData.callId || newData.callId == null)
+      && (newData.focalCallId == oldData.focalCallId || newData.focalCallId == null)
+      && (newData.summary == oldData.summary || newData.summary is string || newData.summary == null)
+      && (newData.score == oldData.score || newData.score is number || newData.score == null)
+      && (newData.sentiment == oldData.sentiment || newData.sentiment is number || newData.sentiment == null);
   }
 }
