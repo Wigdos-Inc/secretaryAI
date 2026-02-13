@@ -84,7 +84,10 @@ export async function prompt(input, chatData = {}) {
     if (typeof chatData !== 'object' || !chatData) throw new Error("Input ChatData must be an Object");
     
     // Create new Chat if chatData is Empty (happens on fresh chats)
-    if (!Object.keys(chatData).length) chatData = { ...emptyChat };
+    if (!Object.keys(chatData).length) {
+        chatData = { ...emptyChat };
+        chatData.title = input;
+    }
 
 
     // Check to Summarize Chat History

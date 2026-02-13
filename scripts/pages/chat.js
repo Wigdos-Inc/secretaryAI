@@ -126,6 +126,15 @@ e.input.form.onsubmit = async (event) => {
     chatData = output.data;
     if (!uid) return;
 
+    // Update chat metadata for history list ordering
+    try {
+        if (!chatData.title) {
+            const t = String(input || '').trim();
+            chatData.title = t ? t.slice(0, 48) : '';
+        }
+        chatData.activity = new Date().toISOString();
+    } catch {}
+
     // Create/Overwrite DB Chat Doc
     if (cid) await DB.dbSetDoc(dbPath.l(), chatData);
     else {
@@ -137,8 +146,14 @@ e.input.form.onsubmit = async (event) => {
         url.searchParams.set("cid", cid);
         window.history.replaceState(null, "", url.toString());
 
+        // Let the sidebar (and any listeners) know cid changed
+        window.dispatchEvent(new Event('cidchange'));
+
     }
 
     // Store Chat in LocalStorage
     localStorage.setItem(`chat_${cid}`, JSON.stringify(chatData));
+
+    // Let the sidebar refresh the recent chats list (best-effort)
+    window.dispatchEvent(new Event('chatlistrefresh'));
 }
